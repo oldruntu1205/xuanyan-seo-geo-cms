@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T11:18:11.544Z",
+  "generatedAt": "2026-09-26T11:26:56.627Z",
   "fileCount": 123,
   "files": [
     {
@@ -19,8 +19,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 103,
-      "sha256": "6b2f89d193c0358c427c1a87b9d834d0f604f78c069ebe2d5b726593649dd067"
+      "bytes": 286,
+      "sha256": "0133e44120fcb7097d227b9363da287b0734c59a17bd6f1cf5816941c0d5d0eb"
     },
     {
       "path": "网站架构.md",

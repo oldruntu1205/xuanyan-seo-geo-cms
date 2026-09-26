@@ -226,8 +226,10 @@ dist/
 .env.*
 !.env.example
 .runtime/
-media/
-static-site/
+# Anchored on purpose: an unanchored "media/" also matched the real CMS source directory
+# apps/cms/src/app/(payload)/media/, which silently kept that route out of version control.
+/media/
+/static-site/
 *.log
 
 ````
