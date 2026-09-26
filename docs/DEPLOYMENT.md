@@ -80,8 +80,11 @@ Redis 必须另行启动，将 REDIS_URL 指向它。`pnpm dev` 启动三个应�
 ```powershell
 pwsh -File infrastructure/scripts/local-demo.ps1        # 起 PostgreSQL/Redis、应用迁移、拉起 cms+web+worker，并做健康检查
 node infrastructure/scripts/seed-demo.mjs               # 播种演示内容（分类/产品/页面/FAQ）并提交发布
+node infrastructure/scripts/seed-demo-media.mjs         # 生成产品示意图（矢量风格，非实拍）→ 上传媒体库 → 挂到产品 → 重新发布
 pwsh -File infrastructure/scripts/local-demo-stop.ps1   # 停止应用；-Force 清理非本脚本启动的进程；-IncludeServices 连数据库和 Redis 一起停
 ```
+
+演示数据的媒体说明：`seed-demo-media.mjs` 用本机 Chrome/Edge 无头渲染内联 SVG 得到 1200×1200 透明底 PNG（需要 `CHROME_PATH` 或默认安装路径），再走真实上传接口入库，每个资产自动生成 1920/1280/768/480 四档 AVIF 与 WebP。生成的 PNG 是**演示示意图，不是实拍图**，按需生成、不入版本库（输出在 `.runtime/demo-media/`）；重复运行会先软删除同名旧资产再重新上传，不会堆积重复项。图片构图要留在中央安全区：前台卡片用 `.card img{aspect-ratio:4/3;object-fit:cover}`，正方形图上下各裁 12.5%，边缘放文字会被切成碎片。
 
 要点：
 

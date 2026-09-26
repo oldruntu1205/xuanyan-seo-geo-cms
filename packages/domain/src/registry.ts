@@ -1,5 +1,13 @@
-export type Resource = { table: string; label: string; group: string; permission: string; readonly?: boolean; key?: string[] };
+export type PublishMode = 'record' | 'rebuild';
+export type Resource = { table: string; label: string; group: string; permission: string; readonly?: boolean; key?: string[]; publishMode?: PublishMode };
 const resource = (table:string,label:string,group:string,permission=group,readonly=false,key=['id']):Resource => ({table,label,group,permission,readonly,key});
+// 「这项改动怎样才能在公开站点生效」的单一 owner。
+// record：可以单独发布这一条（requestPublish 支持，列表操作列有“发布”按钮）。
+// rebuild：内容会被写进每一张已发布页面（见 packages/domain/src/documents.ts 的 siteContext()），
+//          改动后必须全站重建，refreshSite 才会把所有路由重新渲染一遍。
+const recordPublishable=new Set(['content_item_translations','product_translations','taxonomy_term_translations']);
+const rebuildRequired=new Set(['site_settings','site_setting_translations','menus','menu_items','menu_item_translations','hero_slides','hero_slide_translations','customer_service_channels','customer_service_rules','locales']);
+export function publishModeFor(table:string):PublishMode|undefined{return recordPublishable.has(table)?'record':rebuildRequired.has(table)?'rebuild':undefined;}
 export const resources: Resource[] = [
  resource('content_items','页面 / 文章','content'), resource('content_item_translations','内容翻译','content'), resource('content_blocks','页面区块','content'),
  resource('taxonomies','分类体系','content'),resource('taxonomy_terms','分类','content'),resource('taxonomy_term_translations','分类翻译','content'),resource('content_term_links','内容分类关联','content','content',false,['content_item_id','term_id']),
@@ -13,7 +21,7 @@ export const resources: Resource[] = [
  resource('publish_jobs','发布任务','publishing','publishing',true),resource('publish_job_routes','任务路由','publishing','publishing',true),resource('static_routes','静态路由','publishing','publishing',true),resource('cdn_purge_logs','CDN 刷新日志','publishing','publishing',true),
  resource('translation_jobs','翻译工作流','translation'),resource('content_revisions','内容版本','history','history',true),resource('audit_logs','审计记录','history','history',true),
  resource('locales','语言','system'),resource('site_settings','站点配置','system'),resource('site_setting_translations','站点翻译','system'),resource('users','业务用户映射','system','system',true),resource('roles','角色','system'),resource('permissions','权限定义','system'),resource('user_roles','用户角色','system','system',false,['user_id','role_id']),resource('role_permissions','角色权限','system','system',false,['role_id','permission_id']),resource('integration_connections','集成配置','system'),resource('integration_sync_logs','同步日志','system','system',true),
-];
+].map(r=>({...r,publishMode:publishModeFor(r.table)}));
 export function getResource(table:string) { const r=resources.find(r=>r.table===table); if(!r)throw new Error('Unknown resource');return r; }
 export const roleGroups:Record<string,string[]>={admin:['*'],super_admin:['*'],editor:['content','product','media','appearance'],seo_manager:['seo'],translator:['translation'],reviewer:['publishing']};
 export function canWrite(subject:string|{role:string;permissions?:string[]}, r:Resource) {const role=typeof subject==='string'?subject:subject.role;if(typeof subject!=='string'&&subject.permissions&&!['admin','super_admin'].includes(role))return !r.readonly&&(subject.permissions.includes(r.permission+'.write')||(role==='translator'&&r.table.endsWith('_translations')&&subject.permissions.includes('translation.write')));return !r.readonly && (roleGroups[role]?.includes('*') || roleGroups[role]?.includes(r.permission) || (role==='translator' && r.table.endsWith('_translations')));}

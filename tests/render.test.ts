@@ -5,3 +5,24 @@ test('static routes reject traversal and absolute paths',()=>{for(const v of ['/
 test('shared rendering produces crawlable content without executable input',()=>{const doc=systemDocument({id:'x',code:'en'},{site:{site_name:'Test',primary_domain:'https://example.test',enable_indexing:false},menus:[],heroes:[],channels:[]},'/en','Test <title>',[{type:'rich_text',data:{html:'<p>Visible</p><script>alert(1)</script><img src=x onerror=alert(1)>'}}]);const html=renderHTML(doc);assert.match(html,/Visible/);assert.match(html,/noindex,follow/);assert.ok(!html.includes('<script>alert'));assert.ok(!html.includes('onerror='));assert.match(html,/<h1>Test &lt;title&gt;<\/h1>/);});
 
 test('Browser script parses',()=>{assert.doesNotThrow(()=>new Function(siteJS));});
+
+test('premium home features a published product with escaped caption',()=>{
+ const doc=systemDocument({id:'x',code:'en'},{site:{site_name:'Glass',primary_domain:'https://example.test'},menus:[],heroes:[],channels:[]},'/en','Glass collection',[{type:'product_grid',data:{title:'Collection',items:[{title:'Glass <cup>',route:'/en/products/cup',media:[{url:'/media/cup.png',width:1200,height:1200}]}]}}]);
+ const html=renderHTML(doc);
+ assert.match(html,/hero-visual product-visual/);
+ assert.match(html,/class="hero-caption" href="\/en\/products\/cup"/);
+ assert.match(html,/Glass &lt;cup&gt;/);
+ assert.match(html,/section-intro/);
+ assert.equal((html.match(/<h1>/g)||[]).length,1);
+});
+
+test('premium carousel keeps configured slide controls and safe URLs',()=>{
+ const doc=systemDocument({id:'x',code:'zh'},{site:{site_name:'Glass',primary_domain:'https://example.test'},menus:[],heroes:[{title:'第一张',desktopURL:'/media/scene.jpg',primary_button_text:'联系',primary_button_url:'javascript:alert(1)'},{title:'第二张',desktopURL:'/media/second.jpg'}],channels:[]},'/zh','Glass',[]);
+ const html=renderHTML(doc);
+ assert.match(html,/hero-visual scene-visual/);
+ assert.match(html,/data-slide-count>01 \/ 02/);
+ assert.match(html,/data-pause/);
+ assert.ok(!html.includes('javascript:'));
+ assert.equal((html.match(/<h1>/g)||[]).length,1);
+});
+

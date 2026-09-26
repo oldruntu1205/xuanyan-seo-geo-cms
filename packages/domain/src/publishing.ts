@@ -1,10 +1,12 @@
 import { query, transaction } from './db';
 import { sourceDocument } from './documents';
 import { DomainError, audit } from './crud';
+import { publishModeFor } from './registry';
 import type { Actor } from './types';
 export async function requestPublish(actor:Actor,table:string,id:string,action='publish',scheduledAt?:string){
  if(!(['admin','super_admin'].includes(actor.role)||(actor.permissions?actor.permissions.includes('publishing.write'):actor.role==='reviewer')))throw new DomainError('需要审核或管理员发布权限',403);
- if(!['content_item_translations','product_translations','taxonomy_term_translations'].includes(table))throw new DomainError('不支持发布此类型');
+ // 可发布的资源由 registry 单点声明，避免这里再维护一份副本。
+ if(publishModeFor(table)!=='record')throw new DomainError('不支持发布此类型');
  if(!['publish','unpublish','rebuild'].includes(action))throw new DomainError('Invalid publish action');
  const at=scheduledAt?new Date(scheduledAt):null;if(at&&(!Number.isFinite(at.getTime())||at.getTime()<Date.now()))throw new DomainError('定时发布时间必须在未来');
  return transaction(async c=>{
