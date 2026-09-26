@@ -1,6 +1,6 @@
 # V1.0 验证记录
 
-验证日期：2026-09-26。本记录区分已实际运行的检查和需要部署账户/环境的检查。
+验证日期：2026-09-26；迁移 013 的往返复验于 2026-09-27 追加。本记录区分已实际运行的检查和需要部署账户/环境的检查。
 
 ## 已通过
 
@@ -8,9 +8,11 @@
 |---|---|
 | 全项目 TypeScript | domain、CMS、UI、web、publisher、worker 通过 |
 | Next.js 生产构建 | CMS、web 通过；Worker 类型构建通过 |
-| PostgreSQL 16.14 正向迁移 | 001–012 全部执行成功 |
-| PostgreSQL 全量 rollback | 012→001 全部执行成功 |
+| PostgreSQL 16.14 正向迁移 | 001–013 全部执行成功（013 于 2026-09-27 复验） |
+| PostgreSQL 全量 rollback | 012→001 全部执行成功（2026-09-26） |
 | rollback 后重新迁移 | 成功；再次执行 up 为无变更 |
+| 013 迁移单步 down/up 往返 | 回滚后 013 的 3 列、2 个索引与 `schema_migrations` 登记全部消失；重新 up 后全部复原；再次 up 无变更（2026-09-27） |
+| DeepSeek 翻译端到端（V2.0） | 真实 API 调用成功（2773ms / 709 tokens）；任务落 `translation_jobs` 且状态 `review`、`attempt_count=1`、`target_translation_id` 已写入；译文以 `draft` 落 `content_item_translations`；审计留痕 `create content_item_translations`（2026-09-27） |
 | 数据约束 | UUID、外键、跨类型 URL 唯一性、路径安全、301 循环防护通过 |
 | 数据库运行逻辑 | search_vector、updated_at、软删除释放路径通过 |
 | 业务集成 | CRUD、权限、草稿隔离、版本恢复通过 |
@@ -41,5 +43,6 @@
 - 增量发布通过依赖重新计算 + checksum 跳过不变文件；目前依赖扫描覆盖全站。
 - PostgreSQL simple FTS 对中文不提供专门的中文分词。
 - AI 客服接口、CRM/ERP 与自动 AI 写作不在冻结 V1.0 的实现范围；AI chat 为明确的 501 预留响应。
+- 迁移 `013_translation_runtime.sql` 与 DeepSeek 自动翻译属 **V2.0** 范围（2026-09-27 确认），不计入 V1.0 功能验收。此处仅登记该迁移已应用、通过 down/up 往返，且翻译链路已做一次真实端到端调用（见上表）；批量并发、超长内容拆分与失败重试的边界未逐一实测。
 
 复现方法见 README 与 DEPLOYMENT。源码汇编由 `node infrastructure/scripts/export-source.mjs` 生成。

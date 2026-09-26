@@ -63,3 +63,17 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 迁移执行记录位于 public.schema_migrations。账号 migration 的代码和 snapshot 位于 apps/cms/src/migrations，表位于 payload_internal。
 
 媒体上传生成 AVIF/WebP，每种格式四个目标宽度（不放大原图）。内容的 body 为区块数组；产品规格值三种类型只能填一种。软删除覆盖内容、产品、翻译、媒体、询盘等主体；关联表按外键规则清理。
+
+## AI 设置与自动翻译（需登录）
+
+- `GET /api/v1/translation-targets?entityType=content_item_translations&entityId=<uuid>`：列出可用目标语言及已有内容状态。
+- `GET /api/v1/translation-jobs`：翻译任务、状态与是否已配置服务（含 `config.reason` 说明不可用原因）；不会返回密钥。
+- `POST /api/v1/translation-jobs`：`{entityType,entityId,targetLocaleIds,overwriteDraft?}`，异步提交任务。
+- `PATCH /api/v1/translation-jobs`：`{id,action:"retry"|"approve"}`。
+- `GET /api/v1/llm-settings`：仅管理员可用。返回 `{provider,model,url,enabled,configured,hasSavedKey,hasEnvKey,keySource,keyFingerprint,keyProblem,urlProblem,updatedAt,updatedBy}`。密钥本身永不回显，`keyFingerprint` 仅用于确认当前生效的是哪一把密钥。
+- `PUT /api/v1/llm-settings`：仅管理员可用，体为 `{model,url,enabled,apiKey?,clearKey?}`。`apiKey` 留空表示保留已保存的密钥，`clearKey:true` 表示删除。写入前校验模型名与接口地址（仅 HTTPS，本机可用 `http://localhost`），并串行化读改写以避免并发保存互相覆盖；每次变更写 `audit_logs`（记录 `keyAction: kept|replaced|cleared|none`，不记录密钥）。
+- `POST /api/v1/llm-test`：仅管理员可用，体可选 `{model?,url?,apiKey?}`。缺省字段回落到已保存配置；**允许用尚未保存的凭据试跑，任何情况下都不写库**。成功返回 `{ok,model,endpoint,durationMs,sample,usage,keySource,fromUnsavedInput}`。
+
+上游错误会分级为可执行的中文提示：密钥无效/余额不足/模型不存在 → 400，限流 → 429，上游 5xx → 502，出网超时 → 504。上游 401/403 **不会**原样返回（业务管理页把 401 当作会话过期并强制退出登录）。
+
+译文写入草稿并进入“待校对”，不会自动发布。DeepSeek JSON 输出接口要求 `response_format:{type:"json_object"}`；详见 [DeepSeek 官方文档](https://api-docs.deepseek.com/guides/json_mode/)。任务完成后 `translation_jobs.result_data.metrics` 记录模型、批次数、耗时与 token 用量。

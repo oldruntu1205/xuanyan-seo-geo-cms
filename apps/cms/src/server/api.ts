@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { query,transaction,serviceForVisitor,resources,canRead,canWrite,list,save,remove,restoreRevision,requestPublish,rebuildSite,jobAction,siteContext,released,DomainError,assetURL,type Row } from '@suns/domain';
+import { query,transaction,serviceForVisitor,resources,canRead,canWrite,list,save,remove,restoreRevision,requestPublish,rebuildSite,jobAction,siteContext,released,DomainError,assetURL,referenceLabels,canResolveReference,identifier,audit,type Row } from '@suns/domain';
 import { actorFor,checkOrigin } from './auth';
 import { uploadMedia } from './media';
+import {translationTargets,translationJobs,enqueueTranslations,translationAction,llmSettings,saveLLMSettings,testLLMSettings} from '@suns/domain';
 
 const response=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 async function json(request:Request){const raw=await boundedBody(request,2_000_000);try{return JSON.parse(new TextDecoder().decode(raw));}catch{throw new DomainError('无效 JSON');}}
+// 供“可带可不带正文”的接口使用：空正文按 {} 处理，不报错。
+async function optionalJson(request:Request,limit=50_000){if(!request.body)return {};const raw=await boundedBody(request,limit);const text=new TextDecoder().decode(raw).trim();if(!text)return {};try{return JSON.parse(text);}catch{throw new DomainError('无效 JSON');}}
 export async function boundedBody(request:Request,limit:number){const reader=request.body?.getReader();if(!reader)throw new DomainError('请求正文不能为空');const chunks:Uint8Array[]=[];let total=0;for(;;){const {value,done}=await reader.read();if(done)break;total+=value.byteLength;if(total>limit){await reader.cancel();throw new DomainError('请求过大',413);}chunks.push(value);}const b=new Uint8Array(total);let offset=0;for(const c of chunks){b.set(c,offset);offset+=c.length;}return b;}
 let proxyWarningIssued=false;
 // Forwarded headers are trustworthy only when the operator declares a proxy in front (TRUST_PROXY=1).
@@ -53,10 +56,78 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
  try{
   const {path}=await params;const url=new URL(request.url);const publicResponse=await publicApi(request,path,url);if(publicResponse)return publicResponse;
   checkOrigin(request);const actor=await actorFor(request);const table=url.searchParams.get('resource')||'';
-  if(path[0]==='meta')return response({actor,resources:resources.filter(r=>canRead(actor,r)).map(r=>({...r,writable:canWrite(actor,r)}))});
+  if(path[0]==='meta')return response({actor,resources:resources.filter(r=>canRead(actor,r)).map(r=>({...r,writable:canWrite(actor,r)})),locales:await query('SELECT id,code,native_name FROM locales WHERE is_enabled ORDER BY sort_order,code')});
+  if(path[0]==='reference-options'&&request.method==='GET'){
+   const ref=url.searchParams.get('resource')||'';
+   if(!resources.some(r=>r.table===ref))throw new DomainError('未知关联资源');
+   if(!canResolveReference(actor,ref))throw new DomainError('没有此操作权限',403);
+   const ids=await query<{id:string}>('SELECT id FROM '+identifier(ref)+' ORDER BY id LIMIT 100');
+   const names=(await referenceLabels(actor,{[ref]:ids.map(x=>x.id)}))[ref];
+   return response({rows:ids.map(x=>({id:x.id,name:names[x.id]||'记录 #'+x.id.slice(0,8)})).sort((a,b)=>a.name.localeCompare(b.name))});
+  }
+  if(path[0]==='reference-labels'&&request.method==='POST'){const body=await json(request);return response(await referenceLabels(actor,body.refs));}
   if(path[0]==='dashboard'){const names=['content_items','products','media_assets','publish_jobs',...(['admin','super_admin'].includes(actor.role)?['inquiries']:[])];const counts:Row={};for(const t of names)counts[t]=(await query(`SELECT count(*)::int AS n FROM ${t}`))[0].n;return response({counts,jobs:await query('SELECT id,job_type,entity_type,status,error_message,created_at FROM publish_jobs ORDER BY created_at DESC LIMIT 8')});}
+  if(path[0]==='llm-settings'){
+   if(request.method==='GET')return response(await llmSettings(actor));
+   if(request.method==='PUT'){
+    const input=z.object({model:z.string().max(100),url:z.string().url().max(1000),enabled:z.boolean(),apiKey:z.string().max(500).optional(),clearKey:z.boolean().optional()}).parse(await json(request));
+    return response(await saveLLMSettings(actor,input));
+   }
+  }
+  if(path[0]==='llm-test'&&request.method==='POST'){
+   // 允许带上尚未保存的 model/url/apiKey 直接试跑；缺省则用已保存配置。任何情况下都不写库。
+   const input=z.object({model:z.string().max(100).optional(),url:z.string().max(1000).optional(),apiKey:z.string().max(500).optional()}).parse(await optionalJson(request));
+   return response(await testLLMSettings(actor,input));
+  }
+  if(path[0]==='translation-targets'&&request.method==='GET'){
+   const input=z.object({entityType:z.string(),entityId:z.string().uuid()}).parse(Object.fromEntries(url.searchParams));
+   return response(await translationTargets(actor,input.entityType,input.entityId));
+  }
+  if(path[0]==='translation-jobs'){
+   if(request.method==='GET')return response(await translationJobs(actor));
+   if(request.method==='POST'){
+    const input=z.object({entityType:z.string(),entityId:z.string().uuid(),targetLocaleIds:z.array(z.string().uuid()).min(1).max(20),overwriteDraft:z.boolean().optional()}).parse(await json(request));
+    return response(await enqueueTranslations(actor,input),201);
+   }
+   if(request.method==='PATCH'){
+    const input=z.object({id:z.string().uuid(),action:z.enum(['retry','approve'])}).parse(await json(request));
+    return response(await translationAction(actor,input.id,input.action));
+   }
+  }
+  if(path[0]==='create-entry'&&request.method==='POST'){
+   const input=z.object({
+    kind:z.enum(['page','product']),localeId:z.string().uuid(),baseId:z.string().uuid().optional(),
+    title:z.string().trim().min(2).max(200),
+    slug:z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    contentType:z.enum(['page','article','guide','case_study','application','solution','landing_page']).optional(),
+    sku:z.string().trim().min(2).max(100).optional(),
+    summary:z.string().trim().max(2000).optional()
+   }).parse(await json(request));
+   const parentTable=input.kind==='product'?'products':'content_items';
+   const childTable=input.kind==='product'?'product_translations':'content_item_translations';
+   const parentResource=resources.find(r=>r.table===parentTable)!;
+   const childResource=resources.find(r=>r.table===childTable)!;
+   if(!canWrite(actor,childResource)||(!input.baseId&&!canWrite(actor,parentResource)))throw new DomainError('没有创建权限',403);
+   if(input.kind==='product'&&!input.sku&&!input.baseId)throw new DomainError('请输入产品 SKU');
+   const locale=(await query('SELECT id,code FROM locales WHERE id=$1 AND is_enabled',[input.localeId]))[0];
+   if(!locale)throw new DomainError('请选择可用语言');
+   return response(await transaction(async c=>{
+    const parent=input.baseId?(await c.query('SELECT * FROM '+identifier(parentTable)+' WHERE id=$1 AND deleted_at IS NULL',[input.baseId])).rows[0]
+     :input.kind==='product'
+      ?(await c.query(`INSERT INTO products(sku,status,created_by,updated_by) VALUES($1,'draft',$2,$2) RETURNING *`,[input.sku,actor.id])).rows[0]
+      :(await c.query(`INSERT INTO content_items(content_type,status,created_by,updated_by) VALUES($1,'draft',$2,$2) RETURNING *`,[input.contentType||'page',actor.id])).rows[0];
+    if(!parent)throw new DomainError('原内容不存在',404);
+    const path='/'+locale.code+(input.kind==='product'?'/products/':parent.content_type==='article'?'/blog/':'/')+input.slug;
+    const child=input.kind==='product'
+     ?(await c.query('INSERT INTO product_translations(product_id,locale_id,name,slug,path,short_description,description) VALUES($1,$2,$3,$4,$5,$6,$6) RETURNING *',[parent.id,locale.id,input.title,input.slug,path,input.summary||null])).rows[0]
+     :(await c.query('INSERT INTO content_item_translations(content_item_id,locale_id,title,slug,path,excerpt) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[parent.id,locale.id,input.title,input.slug,path,input.summary||null])).rows[0];
+    if(!input.baseId)await audit(c,actor,parentTable,'create',null,parent);
+    await audit(c,actor,childTable,'create',null,child);
+    return {id:child.id,path,resource:childTable};
+   }),201);
+  }
   if(path[0]==='records'){
-   if(request.method==='GET'){const filter=url.searchParams.get('filter');return response(await list(actor,table,{page:Number(url.searchParams.get('page')),search:url.searchParams.get('search')||'',filter:filter?JSON.parse(filter):undefined}));}
+   if(request.method==='GET'){const filter=url.searchParams.get('filter');return response(await list(actor,table,{page:Number(url.searchParams.get('page')),limit:Number(url.searchParams.get('limit')),search:url.searchParams.get('search')||'',filter:filter?JSON.parse(filter):undefined}));}
    const body=await json(request);if(request.method==='POST'||request.method==='PATCH')return response(await save(actor,table,body.data,body.key),request.method==='POST'?201:200);if(request.method==='DELETE')return response(await remove(actor,table,body.key));
   }
   if(path[0]==='upload'&&request.method==='POST'){
