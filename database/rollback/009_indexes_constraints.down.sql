@@ -1,0 +1,9 @@
+DO $$ DECLARE t text; BEGIN FOREACH t IN ARRAY ARRAY['locales','users','roles','site_settings','site_setting_translations','content_items','content_item_translations','content_blocks','taxonomies','taxonomy_terms','taxonomy_term_translations','faq_items','faq_item_translations','products','product_translations','product_spec_definitions','seo_metadata','geo_profiles','schema_markup','hero_slides','menus','menu_items','customer_service_channels','publish_jobs','static_routes','redirects','inquiries','integration_connections'] LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I','trg_'||t||'_updated_at',t); END LOOP; END $$;
+DROP TRIGGER IF EXISTS trg_content_search_vector ON content_item_translations;
+DROP TRIGGER IF EXISTS trg_product_search_vector ON product_translations;
+DROP TRIGGER IF EXISTS trg_content_path_redirect ON content_item_translations;
+DROP TRIGGER IF EXISTS trg_product_path_redirect ON product_translations;
+DROP FUNCTION IF EXISTS register_content_path_redirect();
+DROP FUNCTION IF EXISTS refresh_content_search_vector();
+DROP FUNCTION IF EXISTS refresh_product_search_vector();
+DROP INDEX IF EXISTS ix_geo_refs_profile,ix_geo_facts_profile,ix_download_media_created,ix_inquiry_items_product,ix_inquiries_email,ix_inquiries_status_assigned,ix_inquiries_created,ix_redirect_enabled_source,ix_routes_status,ix_routes_entity,ix_publish_entity,ix_publish_scheduled,ix_publish_queue,ix_media_sha256,ix_audit_user_created,ix_audit_entity,ix_blocks_translation_order,ix_terms_parent,ix_product_specs_number,ix_product_name_trgm,ix_product_search_vector,ix_product_status,ix_content_title_trgm,ix_content_search_vector,ix_content_translation_schedule,ix_content_type_status,ix_content_parent,uq_term_locale_path_live,uq_product_locale_path_live,uq_content_locale_path_live,uq_redirect_locale_source_live;

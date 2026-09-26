@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-09-26T11:12:58.558Z",
+  "postgres": "PostgreSQL 16.14, compiled by Visual C++ build 1944, 64-bit",
+  "forward": true,
+  "rollback": true,
+  "reapply": true,
+  "idempotentRunner": true,
+  "constraints": true,
+  "integration": true
+}

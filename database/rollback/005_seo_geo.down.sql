@@ -1,0 +1,12 @@
+ALTER TABLE product_translations DROP CONSTRAINT IF EXISTS fk_product_translation_schema;
+ALTER TABLE product_translations DROP CONSTRAINT IF EXISTS fk_product_translation_geo;
+ALTER TABLE product_translations DROP CONSTRAINT IF EXISTS fk_product_translation_seo;
+ALTER TABLE taxonomy_term_translations DROP CONSTRAINT IF EXISTS fk_term_translation_seo;
+ALTER TABLE content_item_translations DROP CONSTRAINT IF EXISTS fk_content_translation_schema;
+ALTER TABLE content_item_translations DROP CONSTRAINT IF EXISTS fk_content_translation_geo;
+ALTER TABLE content_item_translations DROP CONSTRAINT IF EXISTS fk_content_translation_seo;
+DROP TABLE IF EXISTS schema_markup;
+DROP TABLE IF EXISTS geo_references;
+DROP TABLE IF EXISTS geo_key_facts;
+DROP TABLE IF EXISTS geo_profiles;
+DROP TABLE IF EXISTS seo_metadata;

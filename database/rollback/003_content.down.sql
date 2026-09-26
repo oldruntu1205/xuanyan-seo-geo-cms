@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS content_faq_links;
+DROP TABLE IF EXISTS faq_item_translations;
+DROP TABLE IF EXISTS faq_items;
+DROP TABLE IF EXISTS content_term_links;
+DROP TABLE IF EXISTS taxonomy_term_translations;
+DROP TABLE IF EXISTS taxonomy_terms;
+DROP TABLE IF EXISTS taxonomies;
+DROP TABLE IF EXISTS content_revisions;
+DROP TABLE IF EXISTS content_blocks;
+DROP TABLE IF EXISTS content_item_translations;
+DROP TABLE IF EXISTS content_items;

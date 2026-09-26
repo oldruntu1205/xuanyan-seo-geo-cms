@@ -1,0 +1,30 @@
+{
+  "name": "suns-seo-geo-cms",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @suns/cms --filter @suns/web --filter @suns/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:up": "docker compose up -d postgres redis",
+    "db:migrate": "node infrastructure/scripts/migrate.mjs up",
+    "db:verify": "node infrastructure/scripts/verify.mjs",
+    "db:rollback": "node infrastructure/scripts/migrate.mjs down",
+    "setup": "node infrastructure/scripts/setup.mjs",
+    "dev:worker": "pnpm --filter @suns/worker start",
+    "auth:migrate": "pnpm --filter @suns/cms exec payload migrate",
+    "test": "pnpm exec tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "@types/pg": "^8.15.5"
+  },
+  "dependencies": {
+    "pg": "^8.16.3",
+    "dotenv": "^16.6.1"
+  },
+  "type": "module"
+}

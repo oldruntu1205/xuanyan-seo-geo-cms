@@ -1,0 +1,35 @@
+name: Validate CMS
+on: [push, pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_USER: suns, POSTGRES_PASSWORD: ci-only-password, POSTGRES_DB: suns}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U suns" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://suns:ci-only-password@localhost:5432/suns
+      REDIS_URL: redis://localhost:6379
+      PAYLOAD_SECRET: ci-only-build-secret-not-a-production-credential-00000000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: {version: 10.17.1}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run setup
+      - run: pnpm db:verify
+      - run: pnpm db:migrate
+      - run: pnpm auth:migrate
+        env: {NODE_ENV: production}
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: docker compose config --quiet
+        env: {POSTGRES_PASSWORD: ci-only-password}

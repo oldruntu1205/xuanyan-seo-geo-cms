@@ -1,0 +1,11 @@
+DELETE FROM publish_jobs WHERE id='00000000-0000-4000-a000-000000000002';
+DELETE FROM site_setting_translations WHERE site_setting_id='00000000-0000-4000-a000-000000000001';
+DELETE FROM site_settings WHERE id='00000000-0000-4000-a000-000000000001';
+DELETE FROM permissions WHERE code LIKE '%.read' OR code LIKE '%.write';
+ALTER TABLE inquiries DROP COLUMN consent_at;
+ALTER TABLE product_translations DROP CONSTRAINT ck_features_array;
+ALTER TABLE content_blocks DROP CONSTRAINT ck_content_block_data;
+ALTER TABLE content_item_translations DROP CONSTRAINT ck_content_body_array;
+ALTER TABLE locales DROP CONSTRAINT ck_locale_code;
+DO $$ DECLARE r record; BEGIN FOR r IN SELECT indexname FROM pg_indexes WHERE schemaname='public' AND indexname LIKE 'ix_fk_%' LOOP EXECUTE format('DROP INDEX %I',r.indexname); END LOOP; END $$;
+DROP INDEX ix_rate_window,ix_content_body_json,ix_published_documents_json,ix_published_search;

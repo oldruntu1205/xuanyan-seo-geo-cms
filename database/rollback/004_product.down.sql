@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS product_relations;
+DROP TABLE IF EXISTS product_documents;
+DROP TABLE IF EXISTS product_media;
+DROP TABLE IF EXISTS product_spec_values;
+DROP TABLE IF EXISTS product_spec_definition_translations;
+DROP TABLE IF EXISTS product_spec_definitions;
+DROP TABLE IF EXISTS product_term_links;
+DROP TABLE IF EXISTS product_translations;
+DROP TABLE IF EXISTS products;

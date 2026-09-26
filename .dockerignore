@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.runtime
+.git
+media
+static-site
+work
+outputs

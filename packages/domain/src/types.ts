@@ -1,0 +1,11 @@
+export type Row = Record<string, any>;
+export type Actor = { id: string; email: string; role: string; permissions?:string[]; displayName?: string };
+export type Block = { type: string; data: Row };
+export type Document = { termIds?:string[]; groupId?:string; contentType?:string;
+  route: string; locale: string; localeId: string; entityType: string; entityId: string;
+  title: string; description: string; body: Block[]; product?: Row; seo: Row; geo: Row;
+  schema: Row; site: Row; menus: Row[]; heroes: Row[]; channels: Row[];
+  faqs: Row[]; media: Row[]; documents: Row[]; related: Row[];
+  alternates: { locale: string; hreflang: string; path: string }[];
+  updatedAt: string;
+};

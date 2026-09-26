@@ -1,0 +1,7 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {safeURL,escape,renderHTML,systemDocument,siteJS} from '../packages/ui/src/index';import {routeFile} from '../packages/publisher/src/files';
+test('HTML and URLs are escaped',()=>{assert.equal(escape('<script>'),'&lt;script&gt;');for(const u of ['javascript:alert(1)','//evil.test','/\\evil.test','data:text/html,test'])assert.equal(safeURL(u),'#');assert.equal(safeURL('/en/products'),'/en/products');});
+test('static routes reject traversal and absolute paths',()=>{for(const v of ['/en/../secret','C:/secret','//host/path','/en/%2e%2e'])assert.throws(()=>routeFile(v));assert.equal(routeFile('/en/products/item'),'en/products/item/index.html');});
+test('shared rendering produces crawlable content without executable input',()=>{const doc=systemDocument({id:'x',code:'en'},{site:{site_name:'Test',primary_domain:'https://example.test',enable_indexing:false},menus:[],heroes:[],channels:[]},'/en','Test <title>',[{type:'rich_text',data:{html:'<p>Visible</p><script>alert(1)</script><img src=x onerror=alert(1)>'}}]);const html=renderHTML(doc);assert.match(html,/Visible/);assert.match(html,/noindex,follow/);assert.ok(!html.includes('<script>alert'));assert.ok(!html.includes('onerror='));assert.match(html,/<h1>Test &lt;title&gt;<\/h1>/);});
+
+test('Browser script parses',()=>{assert.doesNotThrow(()=>new Function(siteJS));});

@@ -1,0 +1,11 @@
+FROM node:22-bookworm-slim
+RUN corepack enable
+WORKDIR /app
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN PAYLOAD_SECRET=build-only-secret-not-used-at-runtime-000000000000 pnpm --filter @suns/cms exec payload generate:importmap
+RUN PAYLOAD_SECRET=build-only-secret-not-used-at-runtime-000000000000 pnpm --filter @suns/cms build
+ENV NODE_ENV=production
+USER node
+EXPOSE 3001
+CMD ["pnpm","--filter","@suns/cms","start"]

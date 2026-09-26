@@ -1,0 +1,14 @@
+DROP TRIGGER trg_spec_definition_type ON product_spec_definitions;
+DROP FUNCTION guard_spec_definition();
+DROP TRIGGER trg_spec_type ON product_spec_values;
+DROP FUNCTION guard_spec_value();
+ALTER TABLE product_spec_values DROP CONSTRAINT ck_spec_one_value;
+ALTER TABLE product_spec_values ADD CHECK(num_nonnulls(value_text,value_number,value_boolean)<=1);
+DROP INDEX uq_revisions_null_locale,uq_media_location,uq_redirect_source;
+DROP TRIGGER trg_guard_redirect ON redirects;
+DROP FUNCTION guard_redirect();
+DROP TRIGGER trg_content_site_path ON content_item_translations;
+DROP TRIGGER trg_product_site_path ON product_translations;
+DROP TRIGGER trg_taxonomy_site_path ON taxonomy_term_translations;
+DROP FUNCTION guard_site_path();
+DROP TABLE runtime_settings,public_submissions,api_rate_limits,site_paths,published_documents;
