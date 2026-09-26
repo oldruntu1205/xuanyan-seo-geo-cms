@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-26T11:26:56.627Z",
-  "fileCount": 123,
+  "generatedAt": "2026-09-26T12:00:12.770Z",
+  "fileCount": 126,
   "files": [
     {
       "path": ".dockerignore",
@@ -29,8 +29,8 @@
     },
     {
       "path": "apps/cms/next-env.d.ts",
-      "bytes": 288,
-      "sha256": "1862ac4bbbc5192d4bf562161df66ea547ed3e67173100656ab606ae9797db2b"
+      "bytes": 295,
+      "sha256": "1b59d4c6b83807db275d43f3cf2cc8e9323f465fab764eea091cc5becd5bad37"
     },
     {
       "path": "apps/cms/next.config.mjs",
@@ -164,8 +164,8 @@
     },
     {
       "path": "apps/web/next-env.d.ts",
-      "bytes": 288,
-      "sha256": "1862ac4bbbc5192d4bf562161df66ea547ed3e67173100656ab606ae9797db2b"
+      "bytes": 295,
+      "sha256": "1b59d4c6b83807db275d43f3cf2cc8e9323f465fab764eea091cc5becd5bad37"
     },
     {
       "path": "apps/web/next.config.ts",
@@ -404,8 +404,8 @@
     },
     {
       "path": "docs/DEPLOYMENT.md",
-      "bytes": 5691,
-      "sha256": "8875cab5c2381e59688a5020b93470cf4641e05f35cd4fb6c0f691c0dc6d2c7b"
+      "bytes": 8020,
+      "sha256": "d4781629be6aca5f67e8585358d05282228b7e0e44b9e487684c89d8fc2a36c7"
     },
     {
       "path": "docs/http-verification.json",
@@ -458,6 +458,16 @@
       "sha256": "47bb550dce321f9b679c9804dd48fc1441c543750006d30595865b578d04a3bf"
     },
     {
+      "path": "infrastructure/scripts/local-demo-stop.ps1",
+      "bytes": 1524,
+      "sha256": "679b574ad806fab773625bf8f852c8f62c734eef78993231b09f658a16a287c5"
+    },
+    {
+      "path": "infrastructure/scripts/local-demo.ps1",
+      "bytes": 7378,
+      "sha256": "aabb314fecc143033693b713a6e01cb70b0445ff4a433f41732f40c4a03b671b"
+    },
+    {
       "path": "infrastructure/scripts/migrate.mjs",
       "bytes": 2613,
       "sha256": "aaf491b459334c79af61453ac058fdd09f473d07c30ab8f664473c8a158c3b4c"
@@ -466,6 +476,11 @@
       "path": "infrastructure/scripts/migrate.ps1",
       "bytes": 306,
       "sha256": "92ca7c7bbae880c0492aee70e9bfbd67ae3aa05cd4225dddacd37be7230893e6"
+    },
+    {
+      "path": "infrastructure/scripts/seed-demo.mjs",
+      "bytes": 14481,
+      "sha256": "a2f1ee2cdc151f158ccd613fa0123f833cd54da00bc1aea788150d1f93f89770"
     },
     {
       "path": "infrastructure/scripts/setup.mjs",

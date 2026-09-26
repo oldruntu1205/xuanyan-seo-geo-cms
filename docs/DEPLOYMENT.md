@@ -73,6 +73,26 @@ pnpm auth:migrate
 
 Redis 必须另行启动，将 REDIS_URL 指向它。`pnpm dev` 启动三个应用。生产不依赖 `.runtime` 目录。
 
+### 一键演示环境
+
+上面几步已封装为两个脚本，用于本机演示；生产不使用。
+
+```powershell
+pwsh -File infrastructure/scripts/local-demo.ps1        # 起 PostgreSQL/Redis、应用迁移、拉起 cms+web+worker，并做健康检查
+node infrastructure/scripts/seed-demo.mjs               # 播种演示内容（分类/产品/页面/FAQ）并提交发布
+pwsh -File infrastructure/scripts/local-demo-stop.ps1   # 停止应用；-Force 清理非本脚本启动的进程；-IncludeServices 连数据库和 Redis 一起停
+```
+
+要点：
+
+- **数据库连接串以 `.runtime/connection.json` 为准**。`.env` 的 `DATABASE_URL` 指向 `localhost:5432`（Compose 路径），而本机临时 PostgreSQL 在 `55432`。应用用 dotenv 读根 `.env`，且 dotenv 不覆盖已存在的环境变量，所以 `local-demo.ps1` 会把 `connection.json` 的 URL 注入子进程环境后再启动应用。
+- `pnpm auth:migrate` 在「存在 migration 文件且 `payload_migrations` 里有 dev 模式写入的 `batch=-1` 标记」时会弹出 *data loss will occur* 交互确认（`@payloadcms/drizzle`），非交互终端会一直等输入。脚本先比对 `apps/cms/src/migrations` 与数据库记录：无待执行迁移直接跳过；有待执行且带 dev 标记时只提示，需人工在真实终端执行，脚本不代替用户确认破坏性操作。
+- 日志在 `.runtime/logs/`（`cms`/`web`/`worker` 各 `.out.log`、`.err.log`，另有 `postgres.log`）。
+- 演示管理员通过 `POST /api/cms-admin-users/first-register` 创建（首位账号由钩子自动获得 `super_admin`），或在 `http://localhost:3001/admin` 手动创建。脚本生成的演示凭据写在 `.runtime/demo-admin.txt`，已被 `.gitignore` 覆盖，不要提交。
+- 写接口（`/api/v1/records`、`/api/v1/publish`）要求请求 `Origin` 出现在 `CORS_ORIGINS` 中；本地配置只列 `localhost`，用 `127.0.0.1` 会被 `checkOrigin` 拒绝（403）。
+- 脚本化调用（脚本/CI）用 `Authorization: JWT <token>` 头，比手工拼 Cookie 更可靠。
+- 默认 `enable_indexing=false`：`robots.txt` 为 `Disallow: /`，`sitemap.xml` 是空的 sitemapindex（`writeSitemaps` 过滤掉未启用索引的站点）。正式上线启用索引并设 `DEPLOYMENT_ENV=production` 后重建才会产出 URL 列表。
+
 ## 验证边界
 
 本机没有 Docker Engine，因此容器镜像、Linux Nginx 和 Redis 7 容器需在目标部署环境执行最终冒烟验证。真实 PostgreSQL 16、Windows Redis 队列、HTTP API、Next.js 构建与前台页面已进行本地验证。Cloudflare/R2/S3/SMTP 未提供实际账户，代码已接入，但未调用真实第三方账户。
