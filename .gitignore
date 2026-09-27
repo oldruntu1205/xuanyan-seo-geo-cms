@@ -11,3 +11,5 @@ dist/
 /media/
 /static-site/
 *.log
+# 部署工作目录的构建产物（脚本与 nginx/PM2 配置保留在版本控制中）
+/_deploy/dist/
