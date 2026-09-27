@@ -3,6 +3,7 @@ import {audit, DomainError} from './crud';
 import {canRead, canWrite, getResource} from './registry';
 import type {Actor, Row} from './types';
 import {activeLLMConfig,llmTranslateBatch,normalizeLLMEndpoint,LLM_PROVIDER} from './llm';
+import {glossaryFor,memoryLookup,sourceHash} from './translation-tools';
 
 export type TranslationKind = 'content_item_translations' | 'product_translations';
 const kinds:TranslationKind[] = ['content_item_translations','product_translations'];
@@ -100,7 +101,21 @@ export async function translationAction(actor:Actor,id:string,action:'retry'|'ap
   await query("UPDATE translation_jobs SET status='pending',error_message=NULL,started_at=NULL,completed_at=NULL,attempt_count=0 WHERE id=$1 AND status='failed'",[id]);
  }else if(action==='approve'){
   if(current.status!=='review')throw new DomainError('任务尚未进入待审核状态');
-  await query("UPDATE translation_jobs SET status='approved' WHERE id=$1 AND status='review'",[id]);
+  await transaction(async c=>{
+   const job=(await c.query("SELECT * FROM translation_jobs WHERE id=$1 AND status='review' FOR UPDATE",[id])).rows[0];
+   if(!job)throw new DomainError('任务状态已改变，请刷新后重试',409);
+   const target=job.target_translation_id?(await c.query(`SELECT * FROM ${table} WHERE id=$1 AND deleted_at IS NULL`,[job.target_translation_id])).rows[0]:null;
+   if(!target)throw new DomainError('译文草稿不存在，请先检查内容');
+   const pairs=Array.isArray(job.result_data?.segmentPairs)?job.result_data.segmentPairs:[];
+   for(const pair of pairs){
+    if(!Array.isArray(pair.path)||typeof pair.source!=='string')continue;
+    let value:any=target;for(const key of pair.path)value=value?.[key];
+    if(typeof value!=='string'||!value.trim())continue;
+    await c.query(`INSERT INTO translation_memory(source_locale_id,target_locale_id,source_hash,source_text,target_text,approved_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(source_locale_id,target_locale_id,source_hash) DO UPDATE SET target_text=EXCLUDED.target_text,approved_by=EXCLUDED.approved_by`,[job.source_locale_id,job.target_locale_id,sourceHash(pair.source),pair.source.trim(),value.trim(),actor.id]);
+   }
+   await c.query("UPDATE translation_jobs SET status='approved' WHERE id=$1",[id]);
+   await audit(c,actor,'translation_jobs','approve',job,{...job,status:'approved'});
+  });
  }else throw new DomainError('未知操作');
  return {ok:true};
 }
@@ -127,18 +142,21 @@ async function translateTexts(texts:string[],sourceLocale:string,targetLocale:st
  if(!config.apiKey)throw new DomainError('尚未配置 DeepSeek API 密钥，请到“自动翻译 → AI 设置”填写并保存',503);
  if(!config.enabled)throw new DomainError('自动翻译已停用，请在“自动翻译 → AI 设置”勾选“启用自动翻译”',503);
  const endpoint=normalizeLLMEndpoint(config.url);
- const all:string[]=[];
+ const all:string[]=new Array(texts.length);
  const usage:Row={prompt_tokens:0,completion_tokens:0,total_tokens:0};
  const startedAt=Date.now();
+ const remembered=await memoryLookup(sourceLocale,targetLocale,texts);
+ const terms=await glossaryFor(sourceLocale,targetLocale);
+ const missing=texts.map((text,index)=>({text,index})).filter(x=>{if(remembered[x.index]){all[x.index]=remembered[x.index]!;return false;}return true;});
  let batches=0,offset=0;
- while(offset<texts.length){
-  const batch:string[]=[];let length=0;
-  while(offset<texts.length&&batch.length<12&&(length+texts[offset].length<4500||!batch.length)){
-   batch.push(texts[offset]);length+=texts[offset].length;offset++;
+ while(offset<missing.length){
+  const batch:{text:string;index:number}[]=[];let length=0;
+  while(offset<missing.length&&batch.length<12&&(length+missing[offset].text.length<4500||!batch.length)){
+   batch.push(missing[offset]);length+=missing[offset].text.length;offset++;
   }
-  const result=await llmTranslateBatch({endpoint,apiKey:config.apiKey,model:config.model},batch,sourceLocale,targetLocale);
+  const result=await llmTranslateBatch({endpoint,apiKey:config.apiKey,model:config.model},batch.map(x=>x.text),sourceLocale,targetLocale,terms);
   for(const key of usageKeys)usage[key]=(Number(usage[key])||0)+(Number(result.usage?.[key])||0);
-  all.push(...result.texts);
+  batch.forEach((item,i)=>{all[item.index]=result.texts[i];});
   batches++;
  }
  return {texts:all,usage,model:config.model,durationMs:Date.now()-startedAt,batches};
@@ -197,6 +215,7 @@ export async function processTranslationJob(job:Row){
    if(job.requested_by)await audit(c,{id:job.requested_by,email:'',role:'translator'},table,fresh?'update':'create',fresh||null,row);
    await c.query("UPDATE translation_jobs SET status='review',target_translation_id=$2,result_data=$3,error_message=NULL,completed_at=now() WHERE id=$1",[job.id,row.id,JSON.stringify({
     sourceUpdatedAt:source.updated_at,targetPath:row.path,translatedFields:parts.length,
+    segmentPairs:parts.map(item=>({path:item.path,source:item.text})),
     metrics:{provider:LLM_PROVIDER,model:translated.model,batches:translated.batches,durationMs:translated.durationMs,promptTokens:translated.usage.prompt_tokens,completionTokens:translated.usage.completion_tokens,totalTokens:translated.usage.total_tokens},
    })]);
   });

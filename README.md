@@ -1,4 +1,4 @@
-# SUNS · SEO/GEO 多语言静态 CMS V1.0
+# SUNS · SEO/GEO 多语言静态 CMS
 
 项目目录：`H:\suns-New-code`。包含可运行前台、管理后台、发布 Worker、PostgreSQL 迁移和部署文件。
 
@@ -101,6 +101,8 @@ pnpm db:rollback
 
 - 本地媒体默认可用；R2/S3、Cloudflare CDN、SMTP、GA4 使用你自己的配置，未配置时不调用这些服务。
 - 默认禁止搜索引擎索引。正式上线时设置站点域名、启用索引，并设置 `DEPLOYMENT_ENV=production` 后重建。
-- AI 客服仅预留接口，符合原 V1.0 边界；ERP、CRM、自动 AI 写作不在本版本范围内。
+- 公开站点的 AI 客服接口仍未启用；V2.0 的后台 AI 写作与受控建议只供已登录运营人员使用。
+
+V2.0 的工作台代码和 `014_v2_workflows.sql` 已加入仓库：AI 写作、翻译术语与记忆、SEO 检查与发布预览、关键词 CSV 导入、公开竞品观察、受控 GEO 采样、询盘跟进和 AI 建议。运行前需执行新的数据库迁移，操作见 `docs/ADMIN-GUIDE.md`。完整 CRM、ERP、营销自动化和复杂 BI 属于后续阶段。
 
 详细操作见 `docs/OPERATIONS.md`；部署见 `docs/DEPLOYMENT.md`；数据/API 约定见 `docs/API.md`。

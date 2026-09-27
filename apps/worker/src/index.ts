@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 config({path:'../../.env'});
 const {Worker,Queue}=await import('bullmq');
 const {default:IORedis}=await import('ioredis');
-const {query,pool,claimTranslationJob,processTranslationJob}=await import('@suns/domain');
+const {query,pool,claimTranslationJob,processTranslationJob,runDueGeoSampling,scheduleCrmSync,runCrmSyncJob}=await import('@suns/domain');
 const {processPublishJob}=await import('@suns/publisher');
 const connection=new IORedis(process.env.REDIS_URL||'redis://localhost:6379',{maxRetriesPerRequest:null});
 const queue=new Queue('static-publish',{connection});
@@ -19,6 +19,14 @@ let translationRunning=false;
 async function dispatchTranslations(){if(translationRunning||closing)return;translationRunning=true;try{const job=await claimTranslationJob();if(job)await processTranslationJob(job);}catch(error){console.error('Translation job failed',error instanceof Error?error.message:error);}finally{translationRunning=false;}}
 const timer=setInterval(dispatch,3000);
 const translationTimer=setInterval(dispatchTranslations,3000);
+let geoRunning=false;
+async function dispatchGeo(){if(geoRunning||closing)return;geoRunning=true;try{await runDueGeoSampling();}catch(error){console.error('Scheduled GEO sample failed',error instanceof Error?error.message:error);}finally{geoRunning=false;}}
+const geoTimer=setInterval(dispatchGeo,60000);
+let crmRunning=false;
+async function dispatchCrm(){if(crmRunning||closing)return;crmRunning=true;try{await scheduleCrmSync();await runCrmSyncJob();}catch(error){console.error('CRM sync failed',error instanceof Error?error.message:error);}finally{crmRunning=false;}}
+const crmTimer=setInterval(dispatchCrm,30000);
 await dispatch();await dispatchTranslations();console.info('Static publisher and translation worker online');
-async function shutdown(){if(closing)return;closing=true;clearInterval(timer);clearInterval(translationTimer);await worker.close();await queue.close();await connection.quit();await pool.end();process.exit(0);}
+await dispatchGeo();
+await dispatchCrm();
+async function shutdown(){if(closing)return;closing=true;clearInterval(timer);clearInterval(translationTimer);clearInterval(geoTimer);clearInterval(crmTimer);await worker.close();await queue.close();await connection.quit();await pool.end();process.exit(0);}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

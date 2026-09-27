@@ -7,5 +7,13 @@ export * from './documents';
 export * from './publishing';
 export * from './llm';
 export * from './translation';
+export * from './ai-writing';
+export * from './seo-review';
+export * from './translation-tools';
+export * from './growth';
+export * from './workflow';
+export * from './collaboration';
+export * from './outreach';
+export * from './crm-sync';
 
 export * from './service';

@@ -1,0 +1,16 @@
+DROP TRIGGER IF EXISTS trg_geo_prompts_updated_at ON geo_prompts;
+DROP TRIGGER IF EXISTS trg_translation_memory_updated_at ON translation_memory;
+DROP TRIGGER IF EXISTS trg_translation_terms_updated_at ON translation_terms;
+DROP TABLE IF EXISTS ai_writing_runs;
+DROP TABLE IF EXISTS ai_assistant_runs;
+DROP TABLE IF EXISTS inquiry_notes;
+DROP INDEX IF EXISTS ix_inquiries_follow_up;
+ALTER TABLE inquiries DROP COLUMN IF EXISTS next_follow_up_at;
+DROP TABLE IF EXISTS geo_samples;
+DROP TABLE IF EXISTS geo_prompts;
+DROP TABLE IF EXISTS competitor_snapshots;
+DROP TABLE IF EXISTS competitor_pages;
+DROP TABLE IF EXISTS keyword_observations;
+DROP TABLE IF EXISTS keyword_imports;
+DROP TABLE IF EXISTS translation_memory;
+DROP TABLE IF EXISTS translation_terms;

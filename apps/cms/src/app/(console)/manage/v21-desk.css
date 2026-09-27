@@ -1,0 +1,14 @@
+.v21 .v21-empty{color:#64786e;padding:1.1rem;background:#f6f8f4;border-radius:10px}
+.v21 .v21-record{padding:1rem 0;border-bottom:1px solid #e2e9df}
+.v21 .v21-record strong,.v21 .v21-record small,.v21 .v21-partner strong,.v21 .v21-partner small{display:block}
+.v21 .v21-record small,.v21 .v21-partner small{color:#64786e;margin-top:.25rem}
+.v21 .v21-record p{white-space:pre-wrap;overflow-wrap:anywhere}
+.v21 .v21-actions{display:flex;align-items:end;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.v21 .v21-actions label{max-width:11rem}
+.v21 .v21-picker{max-height:13rem;overflow:auto;padding:.5rem;border:1px solid #dce5d9;border-radius:10px;margin:1rem 0}
+.v21 .v21-picker label{display:flex;gap:.7rem;align-items:start;padding:.5rem;border-bottom:1px solid #edf1ea}
+.v21 .v21-picker small{display:block;color:#718075}
+.v21 .v21-detail{border-top:1px solid #dce5d9;margin-top:1.3rem;padding-top:1rem}
+.v21 .v21-partner{display:block;width:100%;text-align:left;margin:.5rem 0;padding:.8rem;border:1px solid #dce5d9;border-radius:10px;background:#fff}
+.v21 .v21-notice{padding:.8rem 1rem;background:#e9f3e5;border:1px solid #bcd6b2;border-radius:10px}
+.v21 .v21-check{display:flex;align-items:center;gap:.6rem}

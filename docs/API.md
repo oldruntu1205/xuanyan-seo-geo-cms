@@ -77,3 +77,49 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 上游错误会分级为可执行的中文提示：密钥无效/余额不足/模型不存在 → 400，限流 → 429，上游 5xx → 502，出网超时 → 504。上游 401/403 **不会**原样返回（业务管理页把 401 当作会话过期并强制退出登录）。
 
 译文写入草稿并进入“待校对”，不会自动发布。DeepSeek JSON 输出接口要求 `response_format:{type:"json_object"}`；详见 [DeepSeek 官方文档](https://api-docs.deepseek.com/guides/json_mode/)。任务完成后 `translation_jobs.result_data.metrics` 记录模型、批次数、耗时与 token 用量。
+
+## V2.0 工作台接口（需登录）
+
+所有 `v2` 路由沿用 Payload 会话、Origin 检查、资源权限和参数校验。数据结构由 `apps/cms/src/server/v2-api.ts` 的 Zod 契约定义。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/api/v1/v2/seo?entityType=&id=` | 草稿 SEO 诊断与修复资源 |
+| GET | `/api/v1/v2/preview?entityType=&id=` | 当前草稿 HTML、公开快照、差异和历史发布 |
+| POST | `/api/v1/v2/rollback` | `{jobId}`：从已完成发布快照生成新发布任务 |
+| GET/POST/DELETE | `/api/v1/v2/translation-terms` | 术语表读取、保存、删除 |
+| GET | `/api/v1/v2/translation-memory` | 已审核翻译记忆 |
+| GET | `/api/v1/v2/translation-compare?id=` | 原文与译文对照 |
+| POST | `/api/v1/v2/translation-batch` | `{ids}` 批量标记已校对，逐项返回成功和失败 |
+| GET/POST | `/api/v1/v2/keywords` | 最新关键词主题簇 / 导入 Search Console CSV |
+| GET/POST | `/api/v1/v2/competitors` | 指定 HTTPS 页面列表 / 受限采集 |
+| GET | `/api/v1/v2/competitor-history?id=` | 已采集标题、摘要和标题层级的历史 |
+| GET/POST | `/api/v1/v2/geo` | 固定提示词与样本 / 保存提示词 |
+| POST | `/api/v1/v2/geo-sample` | `{id}`：运行一次 DeepSeek 抽样 |
+| GET/PATCH | `/api/v1/v2/inquiries` | 询盘与备注 / 状态、负责人、跟进时间、备注 |
+| GET | `/api/v1/v2/assistant-context` | 当前账号可读取的文章和产品名称 |
+| GET | `/api/v1/v2/assistant-history` | 当前账号的建议记录 |
+| POST | `/api/v1/v2/assistant-suggest` | 对指定内容提供写作、翻译或 SEO 建议 |
+| GET | `/api/v1/v2/ai-writing-history` | 当前账号的 AI 写作模型和 token 记录 |
+
+`014_v2_workflows.sql` 新增各工作流记录及询盘下次跟进时间，回滚脚本为 `database/rollback/014_v2_workflows.down.sql`。CSV 导入数据标为运营提供，不能当作已通过 Google 身份验证；GEO 链接来自模型输出，未经独立验证。
+
+## V2.1 协作与增长接口
+
+全部位于 `/api/v1/v2/`，沿用已有登录、Origin 和角色权限检查。Zod 请求结构见 `apps/cms/src/server/v21-api.ts`。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| POST | `v21-terms-review` | 审批或退回术语 |
+| GET/POST/PATCH | `v21-tasks` | 任务列表、批量分配、状态和负责人更新 |
+| POST | `v21-competitor-alert` | 标记结构变化已查看 |
+| POST | `v21-geo-schedule` | 启用、暂停或调整固定采样 |
+| GET | `v21-geo-trend?id=` | 相同配置样本的日趋势和最近差异 |
+| GET/POST | `v21-outreach` | 合作对象列表及保存 |
+| GET | `v21-outreach-detail?id=` | 草稿、回复与链接 |
+| POST | `v21-outreach-draft`、`v21-outreach-review`、`v21-outreach-reply`、`v21-outreach-link` | 外联记录与人工审核 |
+| GET/POST | `v21-crm-settings` | 管理员读取和保存脱敏的 CRM 配置 |
+| GET | `v21-crm` | 同步任务、冲突和已关联线索 |
+| POST | `v21-crm-queue`、`v21-crm-retry`、`v21-crm-resolve` | 手动排队、重试失败任务、处理冲突 |
+
+本地 SQL 迁移为 `015_v21_collaboration.sql`，回滚脚本为 `database/rollback/015_v21_collaboration.down.sql`。外部 CRM 请求与响应契约、分页和冲突策略见 [V2.1 本地升级说明](V2.1-LOCAL-UPGRADE.md)。

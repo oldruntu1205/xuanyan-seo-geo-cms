@@ -48,6 +48,9 @@ importers:
       '@suns/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@suns/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       cross-env:
         specifier: ^10.0.0
         version: 10.1.0

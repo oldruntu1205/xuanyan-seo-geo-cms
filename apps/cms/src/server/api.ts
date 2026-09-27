@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { query,transaction,serviceForVisitor,resources,canRead,canWrite,list,save,remove,restoreRevision,requestPublish,rebuildSite,jobAction,siteContext,released,DomainError,assetURL,referenceLabels,canResolveReference,identifier,audit,type Row } from '@suns/domain';
 import { actorFor,checkOrigin } from './auth';
 import { uploadMedia } from './media';
-import {translationTargets,translationJobs,enqueueTranslations,translationAction,llmSettings,saveLLMSettings,testLLMSettings} from '@suns/domain';
+import {translationTargets,translationJobs,enqueueTranslations,translationAction,llmSettings,saveLLMSettings,testLLMSettings,writingContext,generateWriting,saveWritingDraft,writingDraftSchema} from '@suns/domain';
+import {v2Api} from './v2-api';
 
 const response=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 async function json(request:Request){const raw=await boundedBody(request,2_000_000);try{return JSON.parse(new TextDecoder().decode(raw));}catch{throw new DomainError('无效 JSON');}}
@@ -56,6 +57,7 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
  try{
   const {path}=await params;const url=new URL(request.url);const publicResponse=await publicApi(request,path,url);if(publicResponse)return publicResponse;
   checkOrigin(request);const actor=await actorFor(request);const table=url.searchParams.get('resource')||'';
+  if(path[0]==='v2')return v2Api(request,path,actor,url,json,response);
   if(path[0]==='meta')return response({actor,resources:resources.filter(r=>canRead(actor,r)).map(r=>({...r,writable:canWrite(actor,r)})),locales:await query('SELECT id,code,native_name FROM locales WHERE is_enabled ORDER BY sort_order,code')});
   if(path[0]==='reference-options'&&request.method==='GET'){
    const ref=url.searchParams.get('resource')||'';
@@ -78,6 +80,17 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
    // 允许带上尚未保存的 model/url/apiKey 直接试跑；缺省则用已保存配置。任何情况下都不写库。
    const input=z.object({model:z.string().max(100).optional(),url:z.string().max(1000).optional(),apiKey:z.string().max(500).optional()}).parse(await optionalJson(request));
    return response(await testLLMSettings(actor,input));
+  }
+  if(path[0]==='ai-writing'){
+   if(path[1]==='context'&&request.method==='GET')return response(await writingContext(actor));
+   if(path[1]==='generate'&&request.method==='POST'){
+    const input=z.object({localeId:z.string().uuid(),topic:z.string().trim().min(5).max(180),sourceNotes:z.string().max(5000),productTranslationId:z.string().uuid().optional(),keywords:z.string().max(300).optional()}).parse(await json(request));
+    return response(await generateWriting(actor,input));
+   }
+   if(path[1]==='save'&&request.method==='POST'){
+    const input=z.object({localeId:z.string().uuid(),draft:writingDraftSchema,runId:z.string().uuid().optional()}).parse(await json(request));
+    return response(await saveWritingDraft(actor,input),201);
+   }
   }
   if(path[0]==='translation-targets'&&request.method==='GET'){
    const input=z.object({entityType:z.string(),entityId:z.string().uuid()}).parse(Object.fromEntries(url.searchParams));
