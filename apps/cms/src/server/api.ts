@@ -113,7 +113,9 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
     title:z.string().trim().min(2).max(200),
     slug:z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     contentType:z.enum(['page','article','guide','case_study','application','solution','landing_page']).optional(),
-    sku:z.string().trim().min(2).max(100).optional(),
+    // 空字符串等同「未提供」：新建页面时前端会带上 sku:''（该输入框只在产品模式下渲染，
+    // 用户看不到也就清不掉），若直接用 .optional() 会被 min(2) 拒绝，导致无法新建页面。
+    sku:z.preprocess(v=>typeof v==='string'&&v.trim()===''?undefined:v,z.string().trim().min(2).max(100).optional()),
     summary:z.string().trim().max(2000).optional()
    }).parse(await json(request));
    const parentTable=input.kind==='product'?'products':'content_items';
