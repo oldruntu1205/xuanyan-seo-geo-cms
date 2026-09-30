@@ -109,6 +109,15 @@ chown -R "$RUN_USER:$RUN_USER" "$APP/apps" "$APP/packages" "$APP/database" "$APP
 chown "$RUN_USER:$RUN_USER" "$APP/ecosystem.config.cjs" 2>/dev/null || true
 [ -f "$APP/.env" ] && chown "$RUN_USER:$RUN_USER" "$APP/.env" && chmod 600 "$APP/.env"
 
+echo "[deploy] ===== 6b/8 同步数据库备份定时任务（幂等：以仓库内文件为准）====="
+if [ -f "$APP/infrastructure/cron/suns-backup.cron" ]; then
+  install -m 0644 -o root -g root "$APP/infrastructure/cron/suns-backup.cron" /etc/cron.d/suns-backup
+  chmod 0755 "$APP/infrastructure/scripts/backup-db.sh" 2>/dev/null || true
+  echo "[deploy] /etc/cron.d/suns-backup 已同步（每日 03:37 备份 DB + .env + media）"
+else
+  echo "[deploy] 警告：包内缺少 infrastructure/cron/suns-backup.cron，跳过备份任务同步"
+fi
+
 # 迁移必须在「新代码生效」之前完成：新版本的查询可能依赖新列/新表。
 # 此时 PM2 仍跑着旧进程（内存里的旧代码），所以这一步失败中止也是安全的失败状态。
 echo "[deploy] ===== 7/8 应用数据库迁移（幂等，只跑未应用的）====="

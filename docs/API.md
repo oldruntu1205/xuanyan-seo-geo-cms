@@ -1,5 +1,31 @@
 # API 与数据约定
 
+## V3.0 AI Agent（需后台登录）
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/v2/agent-context` | 可选择的页面、文章和产品名称 |
+| GET / POST | `/api/v1/v2/agent-runs` | 任务列表与每日预算；创建任务 `{entityType, entityId, objective, maxSteps, tokenBudget}` |
+| GET | `/api/v1/v2/agent-run?id=UUID` | 计划、步骤证据、建议、决策与当前草稿 SEO 诊断 |
+| POST | `/api/v1/v2/agent-decision` | `{id, action, note?, rating?}`；action 为 `approve`、`reject`、`apply`、`cancel` 或 `rate` |
+
+创建者需有目标内容与 SEO 查看权限；审核需要审核/发布权限；套用需要目标内容写权限。变更应用到草稿，公开发布仍用原有发布接口。请求使用现有登录会话及同源检查。
+
+## V3.0 GEO 监测（需后台登录）
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/api/v1/v2/geo-monitor` | 模型、地区、问题、目标、任务、预算与在线 Worker |
+| POST | `/api/v1/v2/geo-monitor-model` | 管理员新增/更新模型、端点、密钥来源和美元单价；密钥不回显 |
+| POST | `/api/v1/v2/geo-monitor-region` | 管理员新增/更新地区代码和名称 |
+| POST | `/api/v1/v2/geo-monitor-budget` | 管理员设置每日/每月美元上限、队列上限及开关 |
+| POST | `/api/v1/v2/geo-monitor-target` | 为固定问题配置模型、地区、采样间隔与启用状态 |
+| POST | `/api/v1/v2/geo-monitor-sample` | 提交目标的手动采样任务 `{targetId}`，返回 202 |
+| GET | `/api/v1/v2/geo-monitor-trend?promptId=UUID&days=30` | 按目标比较当前配置的 7/30/90 天日趋势 |
+
+模型、地区和预算配置仅管理员可写；目标和手动采样需 SEO 写权限；查看需 SEO 读权限。旧 `/api/v1/v2/geo-sample` 仅能把已有本地目标加入新预算队列；旧 V2.1 定时采样配置接口已停用。
+
+
 ## 公共接口
 
 | 方法 | 路径 | 用途 |
@@ -123,3 +149,46 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 | POST | `v21-crm-queue`、`v21-crm-retry`、`v21-crm-resolve` | 手动排队、重试失败任务、处理冲突 |
 
 本地 SQL 迁移为 `015_v21_collaboration.sql`，回滚脚本为 `database/rollback/015_v21_collaboration.down.sql`。外部 CRM 请求与响应契约、分页和冲突策略见 [V2.1 本地升级说明](V2.1-LOCAL-UPGRADE.md)。
+## V3.0 客户、营销与经营报表
+
+全部后台接口以 `/api/v1/v2/` 为前缀，使用现有登录会话。CRM 与营销读取沿用 `inquiries` 的读取权限，写入沿用其写入权限；启用营销、登记同意与经营报表仅限管理员。
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `crm-overview?q=&stage=&page=` | 销售阶段、商机列表和团队待办 |
+| GET | `crm-options?kind=accounts|contacts|inquiries&q=` | 可搜索关联选项 |
+| GET | `crm-customers?kind=accounts|contacts&q=&page=` | 客户列表 |
+| GET | `crm-customer?kind=account|contact&id=&page=` | 客户档案与时间线 |
+| GET/POST | `crm-deal` | 读取或保存销售机会 |
+| POST | `crm-account`、`crm-contact`、`crm-member`、`crm-activity`、`crm-task` | 客户、成员、沟通和任务 |
+| PATCH | `crm-task` | 完成或取消任务 |
+| GET | `marketing-dashboard`、`marketing-audience?segmentId=` | 分群、活动、同意及投递概况 |
+| POST | `marketing-consent`、`marketing-settings`、`marketing-segment`、`marketing-campaign`、`marketing-campaign-action` | 营销授权、频控、分群与活动 |
+| GET | `bi-catalog`、`bi-report?id=`、`bi-drilldown?id=&metric=&dimension=&page=` | 指标目录、历史快照和来源追溯 |
+| POST | `bi-report` | 生成 UTC 日期范围的不可变经营快照 |
+| GET | `bi-export?id=` | 导出该报表的全部来源 CSV |
+
+公开退订入口为前台 `GET /unsubscribe?token=...`，确认表单提交到同一路径的 `POST`；签名令牌无须用户登录。营销投递采用 `MARKETING_DELIVERY_URL` 指向的 HTTPS JSON 接口，`Authorization: Bearer <MARKETING_DELIVERY_TOKEN>` 与 `Idempotency-Key` 请求头。JSON 包含 `to`、`subject`、`text`、`unsubscribeUrl`、`headers` 与 `metadata`；服务商须实现幂等并将退订头写入最终邮件。2xx 仅表示接口接收，不等于邮件到达。
+
+数据库迁移为 `019_full_crm.sql`、`020_marketing_automation.sql`、`021_business_intelligence.sql`，对应 rollback 脚本同编号。详细口径见 [V3 本地升级记录](V3-CRM-营销-BI-本地升级记录.md)。
+# V3.1 多产品 RFQ 补充
+
+`POST /api/v1/inquiries` 继续接受原有 JSON；前台新增 `multipart/form-data` 形式：`payload` 为与 JSON 相同的字符串对象，`attachment` 可选且只允许不超过 5 MB 的 PDF/JPEG/PNG/WebP。新增字段 `specification_notes`、`target_delivery_on`（YYYY-MM-DD）与 `preferred_incoterm`；`items` 最多 50 项，服务端只接受已发布、与请求语言一致的产品，并重新读取名称/SKU 作为快照。原有幂等键 `key` 和频率限制保持生效。
+
+`GET /api/v1/rfq-attachment/{id}` 仅供已登录且有询盘读取权限的用户下载私有附件。附件内容不会出现在公开静态页面或媒体库。
+
+## V3.2–V3.4 外贸接口
+
+登录态接口前缀 `/api/v1/trade/`：
+
+| 入口 | 方法 | 用途 |
+| --- | --- | --- |
+| workspace / inquiry | GET | 询盘列表、报价、邀请与已关联商机 |
+| quote / quote-action | POST | 新建不可覆盖版本；submit/approve/return/issue/void |
+| grant / revoke | POST | 创建限时邀请；撤销邀请 |
+| market | GET / POST | 语言/国家内容列表与提交审核 |
+| market-action | POST | publish/withdraw，独立审核 |
+| service / response | POST | 首响规则、人工首响登记 |
+| funnel | GET | from/to/source/locale/country/product 过滤的询盘群组统计 |
+
+公开接口前缀 `/api/v1/trade-public/`：`GET cards`、`POST visit`、`GET portal-page`。`GET portal` 和 `POST decision` 需要 Bearer 邀请令牌；只访问单个授权询盘。decision 正文为 `{quoteId,decision:"accepted"|"rejected",note}`。只允许客户角色操作最新、有效且已发出的报价。所有响应 no-store。详见 [升级记录](V3.2-V3.4-外贸业务升级.md)。

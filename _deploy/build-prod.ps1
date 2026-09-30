@@ -28,6 +28,9 @@ if (Test-Path $connFile) {
 Write-Host "[build] NEXT_PUBLIC_SITE_URL=$env:NEXT_PUBLIC_SITE_URL  DEPLOYMENT_ENV=$env:DEPLOYMENT_ENV"
 
 pnpm --filter @suns/cms exec payload generate:importmap
+if ($LASTEXITCODE -ne 0) { throw "生产构建失败：payload generate:importmap 退出码 $LASTEXITCODE" }
 pnpm --filter @suns/cms build
+# 必须显式检查：PowerShell 对原生命令非零退出不抛异常，否则 sync-prod.ps1 会拿失败/陈旧的 .next 继续部署
+if ($LASTEXITCODE -ne 0) { throw "生产构建失败：next build 退出码 $LASTEXITCODE（.next 未更新，勿部署）" }
 
 Write-Host "[build] 完成：apps/cms/.next 已生成（生产变量）"

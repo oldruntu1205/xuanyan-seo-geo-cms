@@ -1,0 +1,6 @@
+# SUNS 生产库备份：PostgreSQL dump + .env + media，保留 14 天（至少最近 7 份）
+# 由 infrastructure/scripts/backup-db.sh 实现；日志 /var/log/suns-backup.log
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+MAILTO=""
+37 3 * * * root /www/wwwroot/opctools/infrastructure/scripts/backup-db.sh
