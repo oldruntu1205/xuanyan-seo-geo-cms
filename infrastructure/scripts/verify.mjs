@@ -65,5 +65,15 @@ try{
  await c.query('ROLLBACK');await c.end();c=null;console.log('Constraints, FTS, soft delete, updated_at and 301 trigger checks passed.');
  await run(['--import','tsx','tests/integration.ts']);
  await run(['infrastructure/scripts/migrate.mjs','down','000']);await migrateBusinessUpAndVerify();await migrateBusinessUpAndVerify();
- await fs.mkdir(path.join(root,'docs'),{recursive:true});await fs.writeFile(path.join(root,'docs/database-verification.json'),JSON.stringify({timestamp:new Date().toISOString(),postgres:version,forward:true,payloadBootstrap:true,migration025:true,clientRoleEnum:true,rollback:true,reapply:true,idempotentRunner:true,constraints:true,integration:true},null,2));console.log('PASS: payload bootstrap → forward → integration → full rollback → reapply → no-op migration.');
+ const record={timestamp:new Date().toISOString(),postgres:version,forward:true,payloadBootstrap:true,migration025:true,clientRoleEnum:true,rollback:true,reapply:true,idempotentRunner:true,constraints:true,integration:true};
+ // 只在"验证结果"变化时才写这份记录：否则每次跑验证都会仅因 timestamp 不同而弄脏工作树，
+ // 让人误以为有未提交改动。timestamp 的语义 = 该结果第一次被记录的时间；结果一致就不动它。
+ const recordPath=path.join(root,'docs/database-verification.json');
+ const canon=o=>JSON.stringify(Object.entries(o).sort(([a],[b])=>(a<b?-1:a>b?1:0)));
+ const strip=({timestamp:ignored,...rest})=>rest;
+ let previous=null;try{previous=JSON.parse(await fs.readFile(recordPath,'utf8'));}catch{}
+ await fs.mkdir(path.join(root,'docs'),{recursive:true});
+ if(previous&&canon(strip(previous))===canon(strip(record)))console.log('Verification record unchanged; existing timestamp kept.');
+ else await fs.writeFile(recordPath,JSON.stringify(record,null,2));
+ console.log('PASS: payload bootstrap → forward → integration → full rollback → reapply → no-op migration.');
 }finally{if(c)await c.end();await admin.query('DROP DATABASE IF EXISTS '+name+' WITH (FORCE)');await admin.end();}
