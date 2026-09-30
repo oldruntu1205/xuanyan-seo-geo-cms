@@ -29,6 +29,11 @@ const visibleThrough:Record<string,string>={
  faq_items:'faq_item_translations',hero_slides:'hero_slide_translations',
  menu_items:'menu_item_translations',site_settings:'site_setting_translations'
 };
+// 文字存在翻译表里的表，一旦对应翻译还没填，就只能退化成「记录 #xxxx」——在「轮播翻译」里选轮播时
+// 根本认不出是哪张图。这里给出与语言无关的兜底名称（轮播 → 「第 N 张 · 图片文件名」）。
+const fallbackLabel:Record<string,{join:string;expr:string}>={
+ hero_slides:{join:'LEFT JOIN media_assets m ON m.id=t.desktop_media_id',expr:"'第 ' || COALESCE(t.sort_order,0) || ' 张' || COALESCE(' · ' || NULLIF(m.original_filename,''), '')"},
+};
 
 export function canResolveReference(actor:Actor,table:string){
  const target=getResource(table);
@@ -52,8 +57,10 @@ export async function referenceLabels(actor:Actor,requested:unknown){
   const direct=fields.length?'COALESCE('+fields.map(x=>`NULLIF(t.${identifier(x)}::text,'')`).join(',')+',NULL)':'NULL::text';
   const translation=translated[table];
   const join=translation?`LEFT JOIN LATERAL (SELECT ${identifier(translation.field)}::text AS label FROM ${identifier(translation.table)} x WHERE x.${identifier(translation.fk)}=t.id ORDER BY (x.locale_id=(SELECT id FROM locales WHERE is_default)) DESC LIMIT 1) translated ON true`:'';
-  const expr=translation?`COALESCE(NULLIF(translated.label,''),${direct})`:direct;
-  const rows=await query<{id:string;label:string|null}>(`SELECT t.id,${expr} AS label FROM ${identifier(table)} t ${join} WHERE t.id=ANY($1::uuid[])`,[ids]);
+  const base=translation?`COALESCE(NULLIF(translated.label,''),${direct})`:direct;
+  const fallback=fallbackLabel[table];
+  const expr=fallback?`COALESCE(NULLIF(${base},''),${fallback.expr})`:base;
+  const rows=await query<{id:string;label:string|null}>(`SELECT t.id,${expr} AS label FROM ${identifier(table)} t ${fallback?fallback.join:''} ${join} WHERE t.id=ANY($1::uuid[])`,[ids]);
   result[table]=Object.fromEntries(rows.filter(r=>r.label).map(r=>[r.id,String(r.label)]));
  }
  return result;

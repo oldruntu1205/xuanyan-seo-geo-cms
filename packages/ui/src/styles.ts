@@ -1,4 +1,6 @@
 import {premiumCSS} from './premium';
+import {tradeCSS} from './trade-style';
+import {tradePublicCSS} from './trade-public';
 const baseCSS=String.raw`
 @layer reset,base,components;
 
@@ -234,6 +236,8 @@ video{width:100%;max-height:80vh;background:var(--brand-900);border-radius:var(-
 .site-footer a{display:block;margin-bottom:10px;font-size:13px;color:rgba(255,255,255,.78)}
 .site-footer a:hover{color:var(--accent)}
 .site-footer small{grid-column:1/-1;border-top:1px solid rgba(255,255,255,.14);padding-top:24px;font-size:11px;color:rgba(255,255,255,.55)}
+.site-footer [data-trade-privacy]{grid-column:1/-1;justify-self:center;padding:9px 16px;font-size:12px;color:rgba(255,255,255,.82);background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:var(--radius);transition:color .2s,border-color .2s}
+.site-footer [data-trade-privacy]:hover{color:#fff;border-color:var(--accent)}
 
 .service-widget{position:fixed;right:22px;bottom:22px;z-index:10}
 .service-widget summary{cursor:pointer;background:var(--accent);color:#241a06;font-weight:600;padding:14px 22px;border-radius:30px;box-shadow:var(--shadow);font-size:13px;list-style:none}
@@ -302,4 +306,4 @@ video{width:100%;max-height:80vh;background:var(--brand-900);border-radius:var(-
 .analytics-consent button:hover{background:var(--accent);color:#241a06;border-color:var(--accent)}
 `;
 
-export const siteCSS=baseCSS+premiumCSS;
+export const siteCSS=baseCSS+premiumCSS+tradeCSS+tradePublicCSS;

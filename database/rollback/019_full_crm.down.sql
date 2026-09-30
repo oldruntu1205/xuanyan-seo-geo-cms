@@ -1,0 +1,16 @@
+DROP TRIGGER IF EXISTS trg_crm_record_inquiry_note ON inquiry_notes;
+DROP FUNCTION IF EXISTS crm_record_inquiry_note();
+DROP TRIGGER IF EXISTS trg_crm_record_inquiry ON inquiries;
+DROP FUNCTION IF EXISTS crm_record_inquiry();
+DROP TRIGGER IF EXISTS trg_crm_link_inquiry ON inquiries;
+DROP FUNCTION IF EXISTS crm_link_inquiry();
+DROP TABLE IF EXISTS crm_history;
+DROP TABLE IF EXISTS crm_activities;
+DROP TABLE IF EXISTS crm_tasks;
+DROP TABLE IF EXISTS crm_opportunity_members;
+DROP TABLE IF EXISTS crm_opportunities;
+ALTER TABLE inquiries DROP COLUMN IF EXISTS crm_contact_id;
+ALTER TABLE inquiries DROP COLUMN IF EXISTS crm_account_id;
+DROP TABLE IF EXISTS crm_account_contacts;
+DROP TABLE IF EXISTS crm_contacts;
+DROP TABLE IF EXISTS crm_accounts;

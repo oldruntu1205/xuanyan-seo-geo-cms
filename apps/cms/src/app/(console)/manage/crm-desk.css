@@ -1,0 +1,15 @@
+.crm-desk .crm-stages{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin:20px 0}
+.crm-stages button{background:#fff;border:1px solid #dce5da;border-radius:10px;text-align:left;padding:15px;color:#234537;cursor:pointer}
+.crm-stages button.selected{border-color:#275b45;background:#e9f1e8}
+.crm-stages strong{display:block;font-size:26px;font-weight:600}.crm-stages span{font-size:13px}
+.crm-toolbar,.crm-toolbar form,.crm-option-search,.crm-pages,.crm-member{display:flex;align-items:center;gap:10px}
+.crm-toolbar{justify-content:space-between;flex-wrap:wrap;margin:18px 0}.crm-toolbar form input,.crm-option-search input{min-width:240px}
+.crm-list-item{display:flex;flex-direction:column;gap:5px;width:100%;padding:13px 15px;background:#fff;border:1px solid #e0e8df;border-radius:8px;margin:8px 0;text-align:left;color:#173e30;cursor:pointer}
+.crm-list-item:hover,.crm-list-item.selected{border-color:#4d8067;background:#f2f7f1}.crm-list-item small,.crm-list-item span{color:#65776a}
+.crm-pages{justify-content:flex-end;margin-top:15px}.crm-pages span{font-size:13px;color:#68766a}
+.crm-record{padding:12px 0;border-bottom:1px solid #e0e8df}.crm-record strong,.crm-record small{display:block}.crm-record small{margin:5px 0;color:#69786d}
+.crm-member{justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef2ec}
+.crm-timeline{border-left:2px solid #c5d8c9;margin-left:5px;padding-left:18px}.crm-timeline>div{position:relative;padding:0 0 18px}.crm-timeline>div:before{content:'';position:absolute;left:-23px;top:4px;width:8px;height:8px;border-radius:50%;background:#578669}.crm-timeline strong,.crm-timeline small{display:block}.crm-timeline small{font-size:12px;color:#718174;margin-top:3px}.crm-timeline p{margin:7px 0;white-space:pre-wrap}
+.crm-desk .v2-card label{display:block;margin:10px 0}.crm-desk .v2-card input,.crm-desk .v2-card select,.crm-desk .v2-card textarea{max-width:100%}
+@media(max-width:1000px){.crm-desk .crm-stages{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:620px){.crm-desk .crm-stages{grid-template-columns:repeat(2,minmax(0,1fr))}.crm-toolbar form,.crm-option-search{width:100%}.crm-toolbar form input,.crm-option-search input{min-width:0;flex:1}}

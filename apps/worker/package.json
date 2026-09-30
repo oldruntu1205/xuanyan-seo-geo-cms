@@ -7,6 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc --noEmit",
     "start": "tsx src/index.ts",
+    "geo-region": "tsx src/geo-region.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

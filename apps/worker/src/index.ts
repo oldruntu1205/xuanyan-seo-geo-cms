@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 config({path:'../../.env'});
 const {Worker,Queue}=await import('bullmq');
 const {default:IORedis}=await import('ioredis');
-const {query,pool,claimTranslationJob,processTranslationJob,runDueGeoSampling,scheduleCrmSync,runCrmSyncJob}=await import('@suns/domain');
+const {query,pool,claimTranslationJob,processTranslationJob,scheduleDueGeoTargets,recoverGeoJobs,geoWorkerIdentity,geoWorkerHeartbeat,claimGeoSampleJob,processGeoSampleJob,scheduleCrmSync,runCrmSyncJob,claimAgentRun,processAgentRun,scheduleMarketing,processMarketingDelivery,recoverMarketingDeliveries}=await import('@suns/domain');
 const {processPublishJob}=await import('@suns/publisher');
 const connection=new IORedis(process.env.REDIS_URL||'redis://localhost:6379',{maxRetriesPerRequest:null});
 const queue=new Queue('static-publish',{connection});
@@ -20,13 +20,26 @@ async function dispatchTranslations(){if(translationRunning||closing)return;tran
 const timer=setInterval(dispatch,3000);
 const translationTimer=setInterval(dispatchTranslations,3000);
 let geoRunning=false;
-async function dispatchGeo(){if(geoRunning||closing)return;geoRunning=true;try{await runDueGeoSampling();}catch(error){console.error('Scheduled GEO sample failed',error instanceof Error?error.message:error);}finally{geoRunning=false;}}
-const geoTimer=setInterval(dispatchGeo,60000);
+const geoIdentity=geoWorkerIdentity();
+async function dispatchGeo(){if(geoRunning||closing)return;geoRunning=true;try{await geoWorkerHeartbeat(geoIdentity.region,geoIdentity.workerId);await recoverGeoJobs();await scheduleDueGeoTargets();}catch(error){console.error('GEO scheduler failed',error instanceof Error?error.message:error);}finally{geoRunning=false;}}
+const geoTimer=setInterval(dispatchGeo,30000);
+let geoSampleRunning=false;
+async function dispatchGeoSample(){if(geoSampleRunning||closing)return;geoSampleRunning=true;try{const job=await claimGeoSampleJob(geoIdentity.region,geoIdentity.workerId);if(job)await processGeoSampleJob(job);}catch(error){console.error('GEO sample failed',error instanceof Error?error.message:error);}finally{geoSampleRunning=false;}}
+const geoSampleTimer=setInterval(dispatchGeoSample,4000);
 let crmRunning=false;
 async function dispatchCrm(){if(crmRunning||closing)return;crmRunning=true;try{await scheduleCrmSync();await runCrmSyncJob();}catch(error){console.error('CRM sync failed',error instanceof Error?error.message:error);}finally{crmRunning=false;}}
 const crmTimer=setInterval(dispatchCrm,30000);
+let agentRunning=false;
+async function dispatchAgent(){if(agentRunning||closing)return;agentRunning=true;try{const run=await claimAgentRun();if(run)await processAgentRun(run);}catch(error){console.error('AI Agent run failed',error instanceof Error?error.message:error);}finally{agentRunning=false;}}
+const agentTimer=setInterval(dispatchAgent,4000);
+let marketingRunning=false;
+async function dispatchMarketing(){if(marketingRunning||closing)return;marketingRunning=true;try{await recoverMarketingDeliveries();await scheduleMarketing();await processMarketingDelivery();}catch(error){console.error('Marketing dispatch failed',error instanceof Error?error.message:error);}finally{marketingRunning=false;}}
+const marketingTimer=setInterval(dispatchMarketing,30000);
 await dispatch();await dispatchTranslations();console.info('Static publisher and translation worker online');
 await dispatchGeo();
+await dispatchGeoSample();
 await dispatchCrm();
-async function shutdown(){if(closing)return;closing=true;clearInterval(timer);clearInterval(translationTimer);clearInterval(geoTimer);clearInterval(crmTimer);await worker.close();await queue.close();await connection.quit();await pool.end();process.exit(0);}
+await dispatchAgent();
+await dispatchMarketing();
+async function shutdown(){if(closing)return;closing=true;clearInterval(timer);clearInterval(translationTimer);clearInterval(geoTimer);clearInterval(geoSampleTimer);clearInterval(crmTimer);clearInterval(agentTimer);clearInterval(marketingTimer);await worker.close();await queue.close();await connection.quit();await pool.end();process.exit(0);}
 process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);

@@ -28,7 +28,7 @@ Push-Location $root
 try{
   & node (Join-Path $PSScriptRoot 'migrate.mjs') up|Out-Null
   if($LASTEXITCODE -ne 0){throw '业务迁移失败（database/*.sql）'}
-  Write-Host '业务迁移（database/001-013）已是最新'
+  Write-Host '业务迁移（database/*.sql）已是最新'
   # Payload 账号迁移：只在确有 pending 时执行。数据库带 dev 模式标记（batch=-1）时 payload migrate 会弹出
   # “data loss will occur” 交互确认（@payloadcms/drizzle），无法非交互执行，也不应由脚本代替用户同意。
   $probe=@'

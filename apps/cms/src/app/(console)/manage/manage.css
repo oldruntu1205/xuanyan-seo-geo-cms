@@ -24,7 +24,7 @@ body{background:#f7f8f4;color:#1d382f}
 .workspace>header{margin-bottom:28px;align-items:flex-start}
 .workspace>header h1{font-family:Georgia,'Songti SC',serif;font-size:clamp(28px,2.5vw,38px);font-weight:400;letter-spacing:-.02em}
 .workspace>header>span{margin-top:15px;color:#637a6c}
-.workspace>header>button{margin-top:4px}
+.workspace>header>button{margin-top:4px}.mode-toggle{border-color:#196c52;color:#196c52;background:#f0f7f1}.mode-toggle:hover{background:#e0eee2}
 .eyebrow{letter-spacing:.17em;color:#738c77}
 .welcome{background:#e9f0e5;border:1px solid #d8e5d6;padding:clamp(28px,4vw,48px);margin-bottom:24px;border-radius:10px;position:relative;overflow:hidden}
 .welcome:after{content:'';position:absolute;width:280px;height:280px;border:1px solid #bdd2bc;border-radius:50%;right:-70px;top:-120px;box-shadow:0 0 0 36px #edf3e9,0 0 0 37px #c7d7c3;pointer-events:none}
@@ -127,3 +127,18 @@ body{background:#f7f8f4;color:#1d382f}
 .llm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.llm-badge{flex:0 0 auto;padding:5px 11px;border-radius:999px;font-size:11px;border:1px solid #d5e2d5;background:#f1f6f1;color:#4a6350}.llm-badge.ready{background:#e6f4ea;border-color:#bcdcc6;color:#1f6b3e}.llm-badge.broken{background:#fdecea;border-color:#f0c2bc;color:#a53c32}.llm-warning{background:#fff6e8;border:1px solid #eedec1;padding:11px 15px;color:#674f22!important}.llm-inline-error{color:#a53c32!important}.llm-meta{margin-left:auto;align-self:center;font-size:11px;color:#7a8a7e}.llm-buttons{align-items:center;flex-wrap:wrap}.llm-probe{padding:14px 16px;border-radius:5px;font-size:12px;border:1px solid}.llm-probe.ok{background:#f1f8f2;border-color:#c8e0cd;color:#2f6944}.llm-probe.bad{background:#fdf3f1;border-color:#f0cdc7;color:#96382f}.llm-probe strong{display:block;margin-bottom:6px;font-size:13px}.llm-probe p{margin:3px 0 0;color:inherit!important;word-break:break-word}
 
 @media(max-width:650px){.llm-settings{padding:18px}.llm-fields{grid-template-columns:1fr}}
+
+/* === 新手友好：字段内就地上传、图片预览、资源页中文步骤、次级入口按钮 === */
+.editor .inline-upload{display:inline-flex;align-items:center;gap:6px;margin-top:9px;padding:7px 13px;font-size:11px;font-weight:600;border-radius:6px;border:1px dashed #7c9a81;color:#2d5b45;background:#eef4ea;cursor:pointer;width:max-content}
+.editor .inline-upload:hover{background:#e2ecdc;border-color:#5c8462}
+.editor .inline-upload input{display:none}
+.editor .field-preview{display:block;margin-top:9px;max-width:220px;max-height:140px;border:1px solid #d5e0d2;border-radius:6px;background:#fff}
+.resource-intro .resource-steps{margin:9px 0 0}
+.resource-intro .resource-steps li{margin:3px 0;line-height:1.6;list-style:none}
+.resource-intro .link-button{margin-top:11px;background:#fff;border:1px solid #7c9a81;color:#2d5b45;padding:7px 13px;border-radius:6px;font-size:12px;font-weight:600}
+.resource-intro .link-button:hover{background:#e2ecdc}
+/* 数据化警示：轮播图没填文字就不会显示 */
+.resource-intro .warn-note{margin:10px 0 0;padding:9px 12px;background:#fdf3e3;border-left:3px solid #d9a441;color:#7a5314;font-weight:600}
+.trade-editor-body{padding:27px}
+.trade-editor-body>small{display:block;margin-top:16px;color:#627c67;line-height:1.6}
+@media(max-width:650px){.trade-editor-body{padding:17px}}

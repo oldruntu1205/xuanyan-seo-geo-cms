@@ -81,7 +81,11 @@ pnpm test
 pnpm db:verify
 ```
 
-数据库验证会建立名称以 `suns_verify_` 开头的独立数据库，执行正向迁移、约束验证、发布集成、全量回滚、重新迁移后删除该临时数据库；不会在业务库中执行回滚。连接用户需要创建数据库的权限。
+数据库验证会建立名称以 `suns_verify_` 开头的独立数据库，按 **Payload 官方迁移 → 业务迁移 001–026 → 约束验证 → 发布集成 → 全量回滚 → 重新迁移** 的顺序执行，最后删除该临时数据库；不会在业务库中执行回滚。
+
+前置条件：① 连接用户具备创建数据库的权限；② `.env` 已生成 `PAYLOAD_SECRET`（`pnpm run setup` 会生成）；③ CMS 工作区依赖已安装。第 ②③ 条是必需的，因为 `payload_internal` 由 Payload 自己拥有，临时库必须先经 Payload 官方迁移链初始化，业务迁移才可能通过。验证期间若 Payload 索要交互确认，脚本会**立即失败并给出提示**，既不会自动确认、也不会静默挂住。
+
+本机没有 Docker 时，`.env` 里指向 `5432` 的 `DATABASE_URL` 不可用，请改用 `node infrastructure/scripts/verify.mjs --local-runtime`（读取 `.runtime/connection.json` 的嵌入式实例）。
 
 当前机器的验证结果见 `docs/VERIFICATION.md` 和同目录 JSON 记录。
 

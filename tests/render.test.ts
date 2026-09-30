@@ -10,9 +10,12 @@ test('premium home features a published product with escaped caption',()=>{
  const doc=systemDocument({id:'x',code:'en'},{site:{site_name:'Glass',primary_domain:'https://example.test'},menus:[],heroes:[],channels:[]},'/en','Glass collection',[{type:'product_grid',data:{title:'Collection',items:[{title:'Glass <cup>',route:'/en/products/cup',media:[{url:'/media/cup.png',width:1200,height:1200}]}]}}]);
  const html=renderHTML(doc);
  assert.match(html,/hero-visual product-visual/);
- assert.match(html,/class="hero-caption" href="\/en\/products\/cup"/);
+ // 2026-09-28 编辑式首页改版后：hero 的 caption 从「指向产品的链接」改为编号标签（线上自 9/28 00:35 起即为此形态），
+ // 产品链接下移到 home-collection 的产品卡。测试意图不变：产品被展示、可点、标题转义。
+ assert.match(html,/class="hero-caption"/);
+ assert.match(html,/<a href="\/en\/products\/cup" class="home-product-image"/);
  assert.match(html,/Glass &lt;cup&gt;/);
- assert.match(html,/section-intro/);
+ assert.match(html,/home-collection/);
  assert.equal((html.match(/<h1>/g)||[]).length,1);
 });
 
