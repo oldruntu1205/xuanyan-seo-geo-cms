@@ -333,6 +333,7 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 | 失败根因（读代码定位） | 错误固定为「译文达到长度上限被截断」。`llmTranslateBatch`（[`packages/domain/src/llm.ts:196`](../../packages/domain/src/llm.ts)）走 `callLLMChat` 的默认 `max_tokens: 4096`，而 [`llm.ts:201`](../../packages/domain/src/llm.ts) 对 `finish_reason==='length'` **直接判失败**。该批中文仅 ~400 字符，**是模型输出失控跑满上限**，非输入过大；同一批其他语言重跑一次即通过（4/5），该条连续 **4 次**复现失败 |
 | 建议修法（待 L1 裁定） | `finish_reason==='length'` 时**把该批对半再切、递归重试一次**，仍失败才报错 —— 既保住"缺段即失败、不静默丢弃"的契约，又能自愈输出失控。**不要**只调大 `max_tokens`（天花板抬高，模型仍可能跑满） |
 | 审核清单 | [docs/机翻待审核清单-20261001.md](../../docs/机翻待审核清单-20261001.md)：含 20 条草稿全文、6 条审核要点、缺失项说明与发布前判定 SQL |
+| **E-9 修复（同日晚）** | `packages/domain/src/llm.ts` 的 `llmTranslateBatch`：`finish_reason==='length'` 时**多段批对半再切、递归重试**，单段批仍显式失败（错误文案不变）。验证：typecheck 0、`pnpm test` 17/17（单段截断用例语义不变）；**本地端到端**用「多段必截断」的假 LLM 跑真实翻译任务 → 请求序列 `7→4/3→2/2/2/1…` 共 13 次、7 个叶子全成功，终态 **`review`**（修复前 `failed`）。⏳ 待部署到生产 |
 | 未做的事 | **未发布任何机翻**（遵守"机翻不自动上线"）；其余 7 语言的公开站仍无可选产品，待人工审核后由 `publish-translations.sh` 发布 |
 
 **回滚**：C-7 可反向恢复（对同一条译文 `publish` 即可让它重新公开）；机翻草稿可直接在 `/manage` 删除，未发布不影响公开站。
