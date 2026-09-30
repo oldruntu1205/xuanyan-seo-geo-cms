@@ -15,6 +15,7 @@
 | 关键目录 | `apps/{cms,web,worker}`、`packages/{domain,ui,publisher,seo,geo,schema,media,i18n}`、`database/`（001–026 + `rollback/`）、`infrastructure/`、`tests/`、`.runtime/`（本机运行时与取证脚本，**不进 git**） |
 | 全量部署与踩坑记录 | [`_deploy/DEPLOY-PROD.md`](_deploy/DEPLOY-PROD.md)（第 7 / 14 / 15.4 节是"别再踩"清单） |
 | 远端仓库 | **私有 `https://github.com/oldruntu1205/xuanyan-seo-geo-cms`**（`origin`，跟踪 `main`）。**push 走 HTTPS + gh 凭据**（`gh auth setup-git`，令牌存系统 keyring）：本机代理 TUN 会拦 GitHub 的 22 端口（`Connection closed by 198.18.0.131`），SSH 若要可用必须改走 `ssh.github.com:443` 并把公钥登记到账号。push 后 GitHub Actions 会跑 `.github/workflows/ci.yml`（含 `pnpm db:verify`，是对验证链最硬的独立验收） |
+| **prod SSH / 本机代理的取捨（2026-10-01 实测）** | 连 prod（`43.132.209.126:22`）会被 TUN 拦；**关掉 TUN 后 SSH 通了，但 git 直连 GitHub 又失败**（`Failed to connect to github.com:443`）—— 因为 git 不读系统代理。两者要并存：SSH 走直连、git 临时挂代理：<br>`$env:HTTPS_PROXY='http://127.0.0.1:7897'`（Clash mixed-port，实测有效；也可 `git config --global http.https://github.com.proxy http://127.0.0.1:7897` 只给 GitHub 永久生效）。<br>prod SSH 密钥用 **`~/.ssh/id_ed25519`**（`id_ed25519_prod` 是**坏格式**，报 `invalid format`） |
 
 ## 2. 命令段（L3 全靠这里，均为 2026-09-30 实测）
 
