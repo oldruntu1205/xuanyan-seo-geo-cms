@@ -14,6 +14,7 @@
 | prod 布局 | 项目根 `/www/wwwroot/opctools`；PM2 `suns-cms`(3001) / `suns-worker`；静态产物 `static-site/` 由 nginx 直出（不过 Node）；PG 18 库/用户均 `suns`；Redis 6379 |
 | 关键目录 | `apps/{cms,web,worker}`、`packages/{domain,ui,publisher,seo,geo,schema,media,i18n}`、`database/`（001–026 + `rollback/`）、`infrastructure/`、`tests/`、`.runtime/`（本机运行时与取证脚本，**不进 git**） |
 | 全量部署与踩坑记录 | [`_deploy/DEPLOY-PROD.md`](_deploy/DEPLOY-PROD.md)（第 7 / 14 / 15.4 节是"别再踩"清单） |
+| 远端仓库 | **私有 `https://github.com/oldruntu1205/xuanyan-seo-geo-cms`**（`origin`，跟踪 `main`）。**push 走 HTTPS + gh 凭据**（`gh auth setup-git`，令牌存系统 keyring）：本机代理 TUN 会拦 GitHub 的 22 端口（`Connection closed by 198.18.0.131`），SSH 若要可用必须改走 `ssh.github.com:443` 并把公钥登记到账号。push 后 GitHub Actions 会跑 `.github/workflows/ci.yml`（含 `pnpm db:verify`，是对验证链最硬的独立验收） |
 
 ## 2. 命令段（L3 全靠这里，均为 2026-09-30 实测）
 

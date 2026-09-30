@@ -25,9 +25,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run setup
       - run: pnpm db:verify
-      - run: pnpm db:migrate
+      # Payload 拥有 payload_internal，业务迁移只消费它 —— 必须先 auth:migrate 建出该 schema，
+      # 025_add_client_role_enum.sql 才可能通过。（2026-09-30 首次真实 CI 在 db:migrate 上以
+      # 3F000 失败，根因就是这个顺序；与 db:verify 内部的 bootstrap 顺序保持一致。）
       - run: pnpm auth:migrate
         env: {NODE_ENV: production}
+      - run: pnpm db:migrate
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
