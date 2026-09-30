@@ -81,6 +81,7 @@
 - **停进程用 PM2 或精确 PID**：`pkill -f "next-server"` 会匹配到执行它的 shell 自身，并误杀同机其他站点。
 - **SSH「无 banner 即断」先查本机代理/VPN（TUN 模式）**，再查服务器。
 - **`.next` 跨平台搬运**有 4 处写死构建机绝对路径 + `serverExternalPackages` 软链问题，`prod-deploy.sh` 已自动化，不要手工搬。
+- **跑 `local-demo.ps1`（即 `next dev`）后工作树会"假脏"三项，要分开处理**：`apps/{cms,web}/next-env.d.ts` 只是 dev/build 路径翻转（`.next/dev/types` ↔ `.next/types`）→ **一律 `git checkout --` 丢弃**；而 `apps/cms/src/payload-types.ts` 是 Payload 依 schema 生成的类型，**内容变化必须提交**（2026-09-30 实例：它缺 role 的 `'client'`，说明仓库那份已陈旧；生成器头部写明 "DO NOT MODIFY IT BY HAND … re-run `payload generate:types`"）。判据：看 diff 是路径翻转还是类型成员变化。
 
 ## 6. 交付纪律（兜底）
 

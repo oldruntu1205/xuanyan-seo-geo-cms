@@ -122,7 +122,7 @@ export interface CmsAdminUserAuthOperations {
 export interface CmsAdminUser {
   id: string;
   displayName: string;
-  role: 'super_admin' | 'admin' | 'editor' | 'seo_manager' | 'translator' | 'reviewer';
+  role: 'super_admin' | 'admin' | 'editor' | 'seo_manager' | 'translator' | 'reviewer' | 'client';
   updatedAt: string;
   createdAt: string;
   email: string;
