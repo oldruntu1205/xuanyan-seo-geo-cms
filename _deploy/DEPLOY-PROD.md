@@ -338,4 +338,16 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 
 **回滚**：C-7 可反向恢复（对同一条译文 `publish` 即可让它重新公开）；机翻草稿可直接在 `/manage` 删除，未发布不影响公开站。
 
+### 18.3 同日续：部署 E-9 修复（2026-10-01 01:27）
+
+| 项 | 内容 |
+|---|---|
+| 部署方式 | `pwsh -File _deploy/sync-prod.ps1 -KeyPath ~/.ssh/id_ed25519`（本机构建 **8.7s** / 打包 2172 文件 **20.9 MB** 自检 ok / 上传 / 服务器部署 / 公网验收） |
+| 变更范围 | **仅** `packages/domain/src/llm.ts` 的 `llmTranslateBatch` 逻辑；**无新迁移**（001–026 全部 applied） |
+| 服务器侧动作 | 备份 `_backup_20261001_012725`；依赖重装（1.5s）、修复 8 个外部包软链、`/etc/cron.d/suns-backup` 幂等同步；PM2 重启 `suns-cms` / `suns-worker` |
+| 公网验收 | **8/8 全 200**：`/`、`/en`、`/zh`、`/admin`、`/manage`、`/api/v1/health`、`/robots.txt`、apex `/en` |
+| **E-9 生产验收** | 重跑 `D222450`×`pt` → **`status=review`（一次通过）**；7 语言 × 3 产品 = **21/21** 草稿，失败任务 **0** |
+| 回滚 | 用 `_backup_20261001_012725/` 内旧 `.next` 覆盖后 `pm2 restart suns-cms`；**无需动数据库** |
+| 顺带修正的坑 | 以 **root** 跑 `pm2 list` 会**新建 root 自己的 PM2 守护进程**（表为空，易误判"应用没了"）——真实应用在 **www** 的 `PM2_HOME=/home/www/.pm2`。已 `pm2 kill` 清掉误建的 root 守护进程。**今后查进程统一用：`su -s /bin/bash www -c 'PM2_HOME=/home/www/.pm2 pm2 list'`** |
+
 
