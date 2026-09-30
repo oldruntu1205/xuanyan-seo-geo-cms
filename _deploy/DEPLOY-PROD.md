@@ -307,4 +307,21 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 | 测试账号 | `client-demo@opctools.cloud`（role=client，密码已单独告知用户）已创建，供用户体验新手模式；如需删除：`/admin` 或 SQL 删 `payload_internal.cms_admin_users` + `public.users` 对应行。 |
 | 回滚补充 | 025/026 的 down：`026` 删 `saved_product_translation_id` 列；`025` 无法删 enum 值（留空）。其余同第 17 节。 |
 
+## 18. 2026-10-01 生产内容变更：上架 3 个真实产品（客户站 sssglass.net）
+
+| 项 | 内容 |
+|---|---|
+| 目标 | 修 C-1/C-2：prod 此前只有 1 个 `draft` 占位产品、`/en` 下**没有任何**可作为询价产品的已发布译文（询价单选不到产品，强行提交 400 `Product is unavailable`） |
+| 资料来源 | 客户站 `http://www.sssglass.net/`（三爱思科学仪器）。**只取站上可核实的事实**（名称/产品编号/品牌/容量规格/材质）；站上没有的字段（MOQ、交期、包装、定制、样品政策）**一律留空，未编造** |
+| 写入方式 | 全程走生产 API（与后台 UI 同路径）：`POST /api/v1/records?resource=products` → `POST /api/v1/create-entry`（zh/en，`baseId` 指向同一产品）→ `PATCH /api/v1/records?resource=product_translations` → `POST /api/v1/publish`（逐语言）→ `POST /api/v1/publish {resource:'site'}`。**未直接写库、未改迁移/nginx/PM2** |
+| 新增产品 | `D222450` A级玻璃量筒（直型·高硼硅·磨口具塞，5–2000 mL）｜`C160005` 低型玻璃烧杯（5–10000 mL）｜`C170050` 玻璃三角烧瓶（50–5000 mL，透明/棕色）。均 `status=active`、`brand=三爱思`，各带 **zh + en** 两条已发布译文 |
+| 变更前备份 | `bash /www/wwwroot/opctools/infrastructure/scripts/backup-db.sh` → `/root/suns-backups/db/suns-20261001_004201.dump`（548 KB，`pg_restore -l` **1032 条目可读**） |
+| 验证（命令级） | ① 6 个产品页公网 `HTTP 200` 且页面含对应 SKU；② `/zh/products`、`/en/products` 与两语言首页均出现新产品；③ **prod 库跑判定 SQL（`api.ts:73` 同款）**：`en` 可选产品 **0 → 3**、`zh` **1 → 4**，其余 7 语言仍 0；④ 产品清单：3 个新 SKU 均 `active` 且各有 2 条已发布译文 |
+| 回滚 | ① **API 层（最快）**：对 6 条译文逐个 `POST /api/v1/publish {action:'unpublish'}` 再重建全站；产品记录可删除（软删除）② **产物层**：用 `/root/suns-backups/static-site_*.tar.gz` 覆盖 `static-site/`（无需 reload nginx）③ **数据层**：`pg_restore` 上述 dump |
+| 遗留（需决策） | ⚠️ **占位产品 `690020260928001` 的 zh 译文本来就是 `published`**，因此公开站真实可见 `https://www.opctools.cloud/zh/products/690020260928001`，页面含占位句「这个是量筒」。这是**先于本次变更就存在**的内容缺陷（slug 也是 SKU），需选择：`unpublish` 下线 / 修文案与 slug 后重发 / 删除该产品。另：本次未做 8 语言机翻（需人工审核），其余 7 语言仍无可选产品 |
+
+### 18.1 顺带订正一处我自己的错误结论
+
+第 10 节「内容依赖」处的订正曾写「`home-collection` 不输出的真实原因是**已发布的产品译文数为 0**」——**与实测不符**：本次实测该占位产品的 zh 译文确实是 `published` 且公开可见。§15.3 当初记的 `product_translations = 0` 疑为**跨层引号写 SQL 导致静默返回错误结果**（本项目已记载过两次同类误判）。结论修正为：该现象的真正原因待查（可能是查询口径或当时的发布状态），**不要**再引用"已发布译文为 0"这一说法。
+
 
