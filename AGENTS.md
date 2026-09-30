@@ -25,7 +25,7 @@
 | 生产构建 | `pwsh -File _deploy/build-prod.ps1` | 退出码 0；**构建必须在开发机**（prod 只有 1.96 GB，构建会 OOM 并波及同机站点） |
 | 数据库全量验证 | 先起本地运行时库（见下），再 `node infrastructure/scripts/verify.mjs --local-runtime` | ✅ 2026-09-30 绿灯（exit 0）：建临时库 → **Payload bootstrap（auth:migrate）** → 业务迁移 001–026（含「025 必须 applied + enum 含 client」两道断言）→ `verify.sql` → `tests/integration.ts` → 全量回滚 → 重迁移（再断言）→ 删库。⚠️ 新增前置：需 `PAYLOAD_SECRET` 与已安装的 CMS 依赖；Payload 若索要交互确认，脚本**立即失败**而非自动确认 |
 | 数据库迁移 | `pnpm db:migrate` / `node infrastructure/scripts/migrate.mjs status` | 生产 `up` 由 `sync-prod.ps1` 自动执行 |
-| 本地全栈演示 | `node infrastructure/scripts/local-demo.ps1` | 起嵌入式 PG(55432) + Redis(6379) + 迁移 + 前后台 |
+| 本地全栈演示 | `pwsh -File infrastructure/scripts/local-demo.ps1`（停止：`local-demo-stop.ps1`） | 起嵌入式 PG(55432) + Redis(6379) + 迁移 + cms(3001)/web(3000)/worker + 健康检查。⚠️ 是 **.ps1**，用 `node` 跑会抛 `ERR_UNKNOWN_FILE_EXTENSION` |
 | 部署 prod | `pwsh -File _deploy/sync-prod.ps1`（`-SkipBuild` 复用现有 `.next`） | 构建 → 打包 → 上传 → 迁移 → PM2 重启 → 公网验收；前端产物改动**必须重建全站**才可见 |
 | 测试目录（L2 只读） | `tests/` | — |
 
