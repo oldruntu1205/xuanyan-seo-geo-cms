@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-01T07:47:47.574Z",
-  "fileCount": 256,
+  "generatedAt": "2026-10-01T08:39:07.596Z",
+  "fileCount": 254,
   "files": [
     {
       "path": "_deploy/build-prod.ps1",
@@ -49,8 +49,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 2446,
-      "sha256": "8171bdf5700aa4b95908d50df5fdb20a7c5f0c236d770a223afc31d1f563fbc7"
+      "bytes": 2711,
+      "sha256": "bb01f29a8cf8a855fa722e594d0168bca802441818dfb5dffca8b91df78da31a"
     },
     {
       "path": ".gitignore",
@@ -744,8 +744,8 @@
     },
     {
       "path": "docs/待验收与遗留清单.md",
-      "bytes": 48451,
-      "sha256": "9d11b16a3ddd53e962fc45c2782e977f99e78c1583c1f1d8198dd28058bcf155"
+      "bytes": 48513,
+      "sha256": "baeff5cb39f2900bf2da5c7cc7c3369ab6460cbe8fae99777c326cfcb36ff81f"
     },
     {
       "path": "docs/后台易用性改造方案.md",
@@ -848,16 +848,6 @@
       "sha256": "ed9b64e576fbc0f0d30d237c42c2955aed196ebf53bbeb86abce4d9d9f8a64d0"
     },
     {
-      "path": "docs/suns-geo-test-source-20261001.zip",
-      "bytes": 1269174,
-      "sha256": "b2b22a219307504e809314e3b81a2843dd803fe180da428cdf80e78cfdd9c599"
-    },
-    {
-      "path": "docs/suns-geo-tests-L1-20261001.zip",
-      "bytes": 41238,
-      "sha256": "5a7ed325ac904cb17e226c5cdb892bf4b97a327584d3aa117ee903364908e3bc"
-    },
-    {
       "path": "docs/V2-IMPLEMENTATION-PLAN.md",
       "bytes": 4784,
       "sha256": "92fb6aff625bb11ffd2cc9d44f4f3df8c9c22a9b66b5a8bc17d4708d6a31e314"
@@ -939,8 +929,8 @@
     },
     {
       "path": "infrastructure/scripts/ensure-payload-schema.mjs",
-      "bytes": 8819,
-      "sha256": "16061d36c7d6aa981c340f6308134c942f0a6a4e9b0eb3db353430f91058bef1"
+      "bytes": 8908,
+      "sha256": "c55bdaf3a2057e8aa17277c7ee2b20c0aff3b71871ce36eda0f22abe51d19e64"
     },
     {
       "path": "infrastructure/scripts/export-source.mjs",

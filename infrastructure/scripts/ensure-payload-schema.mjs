@@ -42,9 +42,10 @@ const opt = (name, fallback) => {
   const i = argv.indexOf(name);
   return i === -1 ? fallback : argv[i + 1];
 };
-// 默认重试 5 次：2026-10-01 现场实测（CI run 36832057991）第 1 次静默空跑、第 2 次成功，
-// 即单次发生率并非"偶发到可忽略"（观测到的样本里约 1/3）。每次静默空跑只花 ~2.5s，
-// 所以多试几次的代价极小；5 次全部撞上的概率约 0.4%（按各次独立估算）。
+// 默认重试 5 次：2026-10-01 现场实测（CI run 36832057991）第 1 次静默空跑、第 2 次成功；
+// 三组 CI 探针合并后的单次发生率约 10~20%（按 job/runner 抽样，存在整组 6/6 全正常的 job），
+// 不是"偶发到可忽略"。每次静默空跑只花 ~2.5s，所以多试几次的代价极小；5 次全部撞上的
+// 残余概率约 10⁻⁴~10⁻³（按各次独立估算）。
 const attempts = Math.max(1, Number(opt('--attempts', '5')) || 5);
 const timeoutMs = Math.max(1, Number(opt('--timeout-seconds', '180')) || 180) * 1000;
 const command = opt('--command', 'pnpm auth:migrate');

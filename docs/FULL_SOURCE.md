@@ -869,8 +869,10 @@ jobs:
       # 然后 exit 0；紧随其后的 db:migrate 就在 **025** 上报 `schema "payload_internal" does not exist`。
       # ⚠️ 这个错误形状与已修复的 **E-8**（步骤顺序写错）一样，但根因不同 —— **不要**再去改步骤顺序。
       # 现在由 ensure-payload-schema.mjs 承担该步骤：先自断言 schema，命中「exit 0 却没建 schema」
-      # 的静默空跑时**原样重试**（默认最多 5 次；现场实测单次发生率约 1/3，run 36832057991 第 1 次
+      # 的静默空跑时**原样重试**（默认最多 5 次；实测单次发生率约 10~20%，run 36832057991 第 1 次
       # 空跑、第 2 次成功），重试仍失败才交给 assert-payload-schema.mjs 响亮报错。
+      # 机制已被 CI 探针定案：**加载器 worker 侧事件循环排空**（`void start()` 非顶层 await → exit 0）。
+      # 别再走"加保活"路线 —— 实测那会把它变成永久挂起（详见 docs/待验收与遗留清单.md 的 E-10）。
       - run: node infrastructure/scripts/ensure-payload-schema.mjs
         env: {NODE_ENV: production}
       - run: pnpm db:migrate
@@ -6767,9 +6769,10 @@ const opt = (name, fallback) => {
   const i = argv.indexOf(name);
   return i === -1 ? fallback : argv[i + 1];
 };
-// 默认重试 5 次：2026-10-01 现场实测（CI run 36832057991）第 1 次静默空跑、第 2 次成功，
-// 即单次发生率并非"偶发到可忽略"（观测到的样本里约 1/3）。每次静默空跑只花 ~2.5s，
-// 所以多试几次的代价极小；5 次全部撞上的概率约 0.4%（按各次独立估算）。
+// 默认重试 5 次：2026-10-01 现场实测（CI run 36832057991）第 1 次静默空跑、第 2 次成功；
+// 三组 CI 探针合并后的单次发生率约 10~20%（按 job/runner 抽样，存在整组 6/6 全正常的 job），
+// 不是"偶发到可忽略"。每次静默空跑只花 ~2.5s，所以多试几次的代价极小；5 次全部撞上的
+// 残余概率约 10⁻⁴~10⁻³（按各次独立估算）。
 const attempts = Math.max(1, Number(opt('--attempts', '5')) || 5);
 const timeoutMs = Math.max(1, Number(opt('--timeout-seconds', '180')) || 180) * 1000;
 const command = opt('--command', 'pnpm auth:migrate');
