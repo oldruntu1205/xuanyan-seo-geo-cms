@@ -92,7 +92,9 @@ needle '/packages/domain/src/geo-monitoring.ts:' 命中 = false
 
 - **B-2 仍未关闭**（按你的口径：未取得 99/99 之前不得标记完成）。清单里我保留 ⏳ 并写明了卡点。
 - 你改完 G28 后，我复跑 `verify.mjs --local-runtime`，期望：**GEO 99/99 → 原 integration → 全量回滚 → 重迁移 → no-op 全 PASS**，然后才关 B-2。
-- 顺带提醒：**不要用 CI 绿灯替代本机验收**。CI 跑在 Linux，按本报告的分析它会 **GREEN**（正斜杠 needle 在 Linux 命中），而本机 Windows 是 **RED**——这个不对称本身就是 G28 这类夹具缺陷的温床。
+- **CI 已实测（不是我推的）**：把本套测试推上去后，CI（ubuntu-latest / pg16 / Node 22）跑出 **`GEO: 99/99 passed; 0 failed`**，且 `PASS: payload bootstrap → forward → integration → full rollback → reapply → no-op migration.` —— **G28 在 Linux 上通过**，与本地 Windows 的 98/99 构成双向对照，坐实了「G28 失败 = 夹具平台假设」。
+- ⚠️ **但别把 CI 绿灯当本机验收**：Windows 才是本项目开发/运行口径（AGENTS.md），而 G28 这类夹具缺陷恰恰是 **Linux 绿 / Windows 红**。这个不对称就是它的温床。
+- ⚠️ **另附一个与本次测试无关的 CI 偶发**（首跑红的真因，详见清单 E-10）：首跑时 `Run pnpm auth:migrate` 步骤里的 `payload migrate` **0.3 秒、零输出地退出 0**（连 `No email adapter` WARN 都没有），于是 `payload_internal` 没被建出来，紧随其后的 `db:migrate` 在 **025** 撞 `error: schema "payload_internal" does not exist`。**重跑即绿**。注意这个错误形状与 **E-8**（步骤顺序写错）**一模一样**，但根因不同——排查时别再去改 `ci.yml` 的顺序。
 
 ## 6. 三点诚实说明（边界）
 
