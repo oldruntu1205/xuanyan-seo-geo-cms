@@ -363,6 +363,26 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 
 **同日删除历史占位产品**：`DELETE /api/v1/records?resource=products`（body `{key:{id}}`，`a393e99c-…`）→ 连带软删其 9 条译文；删除前 `published_documents` = 0、公开站无影响。删除后 prod 仅剩 3 个真实产品，发布脚本的干扰源随之消失。
 
+## 19. 2026-10-01 14:40 同步 prod：G53 修复 + F-3 鉴权（第 1 条 + 裁定 (b)）
+
+来源：`main @ b99ef6e`。本轮**只改代码、不加迁移**（001–026 保持 applied 不变），部署前先复核了范围再执行（见下"为什么先暂停过一次"）。
+
+| 项 | 内容 |
+|---|---|
+| 部署前 prod 版本 | 2026-10-01 01:27 那次（E-9 修复）。实测 prod **没有** `packages/domain/src/lead-scope.ts`、`geo-monitoring.ts` 也**没有** `return await` → 即 F-3 与 G53 **都未上线** |
+| 为什么先暂停过一次 | `sync-prod.ps1` 是**整树部署**，会把 F-3 那笔鉴权改动一起带上去；而清单当时标注它"建议送 L1 终审"。用户在部署前复核阶段选择**先审后部署**，于是本轮先做终审、再落地、最后才部署 |
+| 变更 1：G53 | `geo-monitoring.ts:101` 的 `return transaction(...)` 补 `await`（一个词）——JS 里 `return <promise>` 在 `try` 内不会把 rejection 交给 `catch`，导致"事务内失败"时补偿事务（释放预算预留 + job→failed + 写 last_error）不可达，job 永久卡 `processing`、`reserved_usd` 泄漏 |
+| 变更 2：F-3 第 1 条 | 新增 `lead-scope.ts` 作为**唯一归属口径**并套到 4 个读入口；同时**终审发现它漏了 2 个入口**：`GET /api/v1/trade/funnel` 与 `GET /api/v1/v2/v21-crm` |
+| 变更 3：F-3 裁定 (b) | 上述两个漏点不定为"补过滤"，而是定性为**内部经营/运维视图**，门槛由 `leads.read` 提到 **`leads.write`** → `tradeFunnel` 改 `access(a,'leads',true)`、`crmWorkspace` 改 `lead(actor,true)`。**影响面仅 `client`**（200 变 403；`editor/seo_manager/translator/reviewer` 本就无 leads 权限、`admin/super_admin` 不变） |
+| 本地验收 | `pnpm -r typecheck` exit 0（6/6）；`pnpm test` exit 0（17/17）；`node infrastructure/scripts/verify.mjs --local-runtime` **exit 0**（GEO **99/99** + integration + 全量回滚 → 重迁移 → no-op）；`.runtime/probe-f3-funnel-leak.mjs` **14/14**（两入口对 client 均 403 且响应体不含任何询盘/CRM 数据，admin 无回归）；`.runtime/probe-g27-atomicity.mts` **18/18** |
+| CI | run `36825597340`（`b99ef6e`）**success**（含 GEO 99/99、G28、G6/G53 全绿） |
+| 部署 | `pwsh -File _deploy/sync-prod.ps1`：构建 39.4s → 打包 **2182 文件 / 21.0 MB**（自检：无 `.env`、无源码 `node_modules`、无 `.next` cache）→ 上传 → 部署（备份 → 覆盖 → 修 4+4 处构建机绝对路径 → 依赖 1.9s → 修复 8 个外部包软链 → 固主权限 → cron 幂等同步 → 迁移全 applied 幂等 → PM2 重启）→ **CMS 健康检查第 1 次通过**。备份目录 `/www/wwwroot/opctools/_backup_20261001_144014` |
+| 公网验收 | **8/8 = 200**（`/`、`/en`、`/zh`、`/admin`、`/manage`、`/api/v1/health`、`/robots.txt`、`opctools.cloud/en`） |
+| 部署后行为核验（本轮新加，因为验收脚本只看 200） | ① prod 源码标记：G53 修复=1、funnel 写门=1、`crmWorkspace` 写门=1、`lead-scope.ts`=1；② `.next` server chunks 里含 `lead(actor,true)` → 跑的是新包；③ 角色表：`client` 有 `leads.read`=**true**、`leads.write`=**false**；④ 端到端：未登录 `trade/funnel` **401**、`v2/v21-crm` **401**，管理员两者均 **200**、`trade/workspace` **200**（无回归）；⑤ PM2 `suns-cms`/`suns-worker` online |
+| ⚠️ 未做的一步（诚实） | **没有**在 prod 上做"`client` 账号 → 403"的端到端实测：手上没有 `client-demo@opctools.cloud` 的口令，且我**没有**擅自再建临时账号（prod 账号创建属鉴权面变更）。该结论目前由「本地探针 14/14 + CI + prod 部署产物标记 + prod 权限表实测」共同支撑；要拿到端到端铁证，需给客户端口令或授权建一个**临时** client 账号（用完即删） |
+| 回滚 | 代码/产物：`rm -rf /www/wwwroot/opctools/apps/cms/.next && cp -a /www/wwwroot/opctools/_backup_20261001_144014/.next /www/wwwroot/opctools/apps/cms/.next` 后 `su -s /bin/bash www -c 'PM2_HOME=/home/www/.pm2 pm2 restart suns-cms suns-worker'`；本轮**无数据库迁移**，无需 DB 回滚 |
+| 遗留 | **E-10**（CI 的 `auth:migrate` 偶发零输出空跑，重跑即绿）未修；**不能**用 CI 绿灯替代 Windows 本机验收（G28 那类夹具缺陷正是 Linux 绿/Windows 红） |
+
 
 
 
