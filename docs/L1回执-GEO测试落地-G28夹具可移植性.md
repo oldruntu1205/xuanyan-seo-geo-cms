@@ -101,3 +101,40 @@ needle '/packages/domain/src/geo-monitoring.ts:' 命中 = false
 1. **我改了 `verify.mjs` 一行，但没动你的 `tests/`**：新增测试文件逐字节复制，未做任何编辑。
 2. **`originalVerifySha256` 对不上不是"目标机有别的改动"**：是我打包的锅——`git archive` 把 `verify.mjs` 导成了 **CRLF**（11294 字节），而工作区是 **LF**（11215 字节），79 行差 79 字节。你的哈希校验本身正确；**跨 zip 边界的哈希比对必须先统一行尾**，否则会假红。我按你 README 的第二条分支（哈希不一致 → 只合并那一行）执行，并已验证合并结果与你交付版**行尾归一化后逐字节相同**。
 3. **我没有跑生产、没有外部 LLM 请求**、没有改迁移；夹具全部自清（我的探针与你测试的清理断言均 PASS）。
+
+---
+
+## 7. ✅ 收口（2026-10-01）：G28 夹具已改，目标机 99/99 + 全链路 PASS
+
+**改了什么（恰好一行，经用户明确授权后由 L2 改；改动范围仅限这一行）**
+
+| 项 | 值 |
+| --- | --- |
+| 文件 | `tests/geo-monitoring.integration.ts` |
+| 改前 sha256 | `c2dad8edfc4cf52f006ded1d4813a1c12fba20e083852b682a31921657194740` |
+| 改后 sha256 | `7cce75ae3cdd3b041c19ce8e1889e4bba7fe3c70d746fb6f509e045309b09cbd` |
+| diff | `1 insertion / 1 deletion`（`git diff` 只有第 227 行） |
+
+```diff
+- Date.now=()=>new Error().stack?.includes('/packages/domain/src/geo-monitoring.ts:')?(clock+=10):originalNow();
++ Date.now=()=>String(new Error().stack).replace(/\\/g,'/').includes('/packages/domain/src/geo-monitoring.ts:')?(clock+=10):originalNow();
+```
+
+**目标机复跑（Windows / Node 22.23.1）**
+
+| 命令 | exit | 结果 |
+| --- | ---: | --- |
+| `pnpm test` | **0** | 17/17（原命令，无需任何绕过） |
+| `pnpm -r typecheck` | **0** | 6/6 工作区 |
+| `node infrastructure/scripts/verify.mjs --local-runtime` | **0** | **`GEO: 99/99 passed; 0 failed; 53 contract IDs covered`** → `PASS GEO fixture cleanup` → `PASS: CRUD, RBAC, …` → `PASS: payload bootstrap → forward → integration → full rollback → reapply → no-op migration.` |
+
+关键两行：
+
+```text
+PASS G28  | deterministic processing clock proves rollup duration adds both samples
+PASS G6/G53 | transaction rejection must reach compensation immediately, not after recovery
+```
+
+→ **B-2 的验收口径已满足**（99/99 + 完整验证链 PASS），它已按你的口径关闭。
+
+**收益（顺带）**：这一行让 GEO 测试**跨平台一致** —— 改前是「Linux 绿 / Windows 红」，改后两端都是 99/99，不再有那个不对称的假绿温床。

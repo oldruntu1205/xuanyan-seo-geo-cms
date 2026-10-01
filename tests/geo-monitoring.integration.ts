@@ -224,7 +224,7 @@ test('G27,G28','two successes accumulate one daily rollup and complete all five 
 });
 test('G28','deterministic processing clock proves rollup duration adds both samples',async f=>{
  const originalNow=Date.now;let clock=1000;
- Date.now=()=>new Error().stack?.includes('/packages/domain/src/geo-monitoring.ts:')?(clock+=10):originalNow();
+ Date.now=()=>String(new Error().stack).replace(/\\/g,'/').includes('/packages/domain/src/geo-monitoring.ts:')?(clock+=10):originalNow();
  try{
   await sample(f);const first=(await query('SELECT * FROM geo_daily_rollups'))[0];assert.equal(Number(first.duration_ms),20);
   await sample(f);const roll=(await query('SELECT * FROM geo_daily_rollups'))[0];assert.equal(Number(roll.duration_ms),40);assert.equal(roll.samples,2);
