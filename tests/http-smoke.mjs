@@ -24,6 +24,29 @@ try{
  assert.equal((await request('/api/v1/inquiries',{method:'POST',body:{...submission,key:randomUUID()},auth:false,origin:'https://untrusted.example'})).res.status,403);results.push('RFQ, idempotency, origin protection');
  const search=await request('/api/v1/search?locale=en&q=Queue',{auth:false});assert.ok(search.data.rows.some(r=>r.route===route));
  const unpublish=await request('/api/v1/publish',{method:'POST',body:{resource:'product_translations',id:translationId,action:'unpublish'}});assert.equal(unpublish.res.status,202);await waitJob(unpublish.data.id);assert.equal((await request('/api/v1/document?path='+route,{auth:false})).res.status,404);results.push('public search and unpublish');
+ // ── A19/A20 · 箱规：应用层必须拦成 400，POST 与 GET 必须是同一套 packing 语义（L1 裁定纳入批次 A）──
+ const cartonBase={translationId,minOrderQuantity:null,leadTimeDays:null,orderUnit:null,packagingDetails:null,customizationDetails:null,samplePolicy:null,cartonQuantity:null,cartonLengthMm:null,cartonWidthMm:null,cartonHeightMm:null,grossWeightKg:null};
+ const stamps=async()=>{const r=(await db.query('SELECT p.updated_at AS pu,t.updated_at AS tu FROM products p JOIN product_translations t ON t.product_id=p.id WHERE t.id=$1',[translationId])).rows[0];return {expectedProductUpdatedAt:new Date(r.pu).toISOString(),expectedTranslationUpdatedAt:new Date(r.tu).toISOString()};};
+ // A19：半截外箱尺寸 → 400 中文提示（不是 500，也不是数据库 23514 泄漏）
+ for(const partial of [{cartonLengthMm:500},{cartonLengthMm:500,cartonWidthMm:400},{cartonLengthMm:500,cartonHeightMm:300}]){
+  const bad=await request('/api/v1/trade-product',{method:'POST',body:{...cartonBase,...partial,...await stamps()}});
+  assert.equal(bad.res.status,400,JSON.stringify(bad.data));
+  assert.match(bad.data.error,/外箱尺寸请填全/,'半截外箱尺寸必须给出明确中文提示');
+ }
+ // 028：每箱数量可以单独保存（这就是放宽后的目的），但计算层不得给出任何数字
+ const quantityOnly=await request('/api/v1/trade-product',{method:'POST',body:{...cartonBase,cartonQuantity:288,...await stamps()}});
+ assert.equal(quantityOnly.res.status,200,JSON.stringify(quantityOnly.data));
+ assert.equal(quantityOnly.data.packing.complete,false,'只有每箱数量时不得给出估算数字');
+ assert.equal(quantityOnly.data.packing.cartonVolumeCbm,null);
+ // A20：完整箱规 → 响应带 packing；GET 读回必须与 POST 的结果逐字段一致
+ const savedTrade=await request('/api/v1/trade-product',{method:'POST',body:{...cartonBase,cartonQuantity:12,cartonLengthMm:500,cartonWidthMm:400,cartonHeightMm:300,grossWeightKg:8.5,...await stamps()}});
+ assert.equal(savedTrade.res.status,200,JSON.stringify(savedTrade.data));
+ assert.deepEqual(savedTrade.data.packing.containers.map(c=>c.boxes),[470,959,1082],JSON.stringify(savedTrade.data.packing));
+ const readTrade=await request('/api/v1/trade-product?translationId='+translationId);
+ assert.equal(readTrade.res.status,200,JSON.stringify(readTrade.data));
+ assert.deepEqual(readTrade.data.packing,savedTrade.data.packing,'POST 与 GET 必须使用同一套 packing 语义');
+ assert.equal(readTrade.data.packing.cartonVolumeCbm,0.06);
+ results.push('carton packing: A19 partial spec 400 in Chinese, A20 POST/GET identical packing');
  await fs.writeFile('docs/http-verification.json',JSON.stringify({timestamp:new Date().toISOString(),results,passed:true,redis:'5.0.14.1 temporary Windows port; production compose uses Redis 7'},null,2));console.log('PASS',results.join('; '));
 }finally{
  if(inquiryId)await db.query('DELETE FROM inquiries WHERE id=$1',[inquiryId]);

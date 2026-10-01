@@ -6,7 +6,7 @@ import { uploadMedia } from './media';
 import {translationTargets,translationJobs,enqueueTranslations,translationAction,llmSettings,saveLLMSettings,testLLMSettings,writingContext,generateWriting,saveWritingDraft,writingDraftSchema,generateProduct,saveProductDraft,productDraftSchema} from '@suns/domain';
 import {v2Api} from './v2-api';
 import {tradeApi} from './trade-api';
-import {publicTradeCards,recordTradeVisit,portalWorkspace,portalDecision} from '@suns/domain';
+import {publicTradeCards,recordTradeVisit,portalWorkspace,portalDecision,packingSummary,packingSpecFromRow,cartonSpecProblem} from '@suns/domain';
 import {tradePortalHTML} from '@suns/ui';
 
 const response=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -98,18 +98,32 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
    if(!file)throw new DomainError('附件不存在',404);
    return new Response(file.content as BodyInit,{headers:{'Content-Type':file.mime_type,'Content-Length':String(file.file_size),'Content-Disposition':"attachment; filename=\"rfq-file\"; filename*=UTF-8''"+encodeURIComponent(file.original_filename),'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   }
+  if(path[0]==='trade-product'&&request.method==='GET'){
+   const productAccess=resources.find(r=>r.table==='products')!,translationAccess=resources.find(r=>r.table==='product_translations')!;
+   if(!canRead(actor,productAccess)||!canRead(actor,translationAccess))throw new DomainError('没有产品查看权限',403);
+   const translationId=z.string().uuid().parse(url.searchParams.get('translationId'));
+   const row=(await query('SELECT p.carton_quantity,p.carton_length_mm,p.carton_width_mm,p.carton_height_mm,p.gross_weight_kg FROM product_translations t JOIN products p ON p.id=t.product_id WHERE t.id=$1 AND t.deleted_at IS NULL AND p.deleted_at IS NULL',[translationId]))[0];
+   if(!row)throw new DomainError('产品语言版本不存在',404);
+   return response({packing:packingSummary(packingSpecFromRow(row))});
+  }
   if(path[0]==='trade-product'&&request.method==='POST'){
    const productAccess=resources.find(r=>r.table==='products')!,translationAccess=resources.find(r=>r.table==='product_translations')!;
    if(!canWrite(actor,productAccess)||!canWrite(actor,translationAccess))throw new DomainError('没有产品编辑权限',403);
-   const input=z.object({translationId:z.string().uuid(),expectedProductUpdatedAt:z.string().datetime({offset:true}),expectedTranslationUpdatedAt:z.string().datetime({offset:true}),minOrderQuantity:z.number().positive().max(1e9).nullable(),leadTimeDays:z.number().int().min(1).max(3650).nullable(),orderUnit:z.string().trim().max(40).nullable(),packagingDetails:z.string().trim().max(4000).nullable(),customizationDetails:z.string().trim().max(4000).nullable(),samplePolicy:z.string().trim().max(4000).nullable()}).parse(await json(request));
+   const input=z.object({translationId:z.string().uuid(),expectedProductUpdatedAt:z.string().datetime({offset:true}),expectedTranslationUpdatedAt:z.string().datetime({offset:true}),minOrderQuantity:z.number().positive().max(1e9).nullable(),leadTimeDays:z.number().int().min(1).max(3650).nullable(),orderUnit:z.string().trim().max(40).nullable(),packagingDetails:z.string().trim().max(4000).nullable(),customizationDetails:z.string().trim().max(4000).nullable(),samplePolicy:z.string().trim().max(4000).nullable(),cartonQuantity:z.number().positive().max(1e6).nullable(),cartonLengthMm:z.number().positive().max(100000).nullable(),cartonWidthMm:z.number().positive().max(100000).nullable(),cartonHeightMm:z.number().positive().max(100000).nullable(),grossWeightKg:z.number().positive().max(100000).nullable()}).parse(await json(request));
+   // Mirrors the products_carton_spec_complete constraint so the operator gets a Chinese
+   // explanation instead of a raw constraint violation.
+   // The rule lives in packing.ts so it can be exhaustively tested without a database;
+   // the database CHECK is the second gate for callers that bypass this route.
+   const cartonProblem=cartonSpecProblem({cartonQuantity:input.cartonQuantity,cartonLengthMm:input.cartonLengthMm,cartonWidthMm:input.cartonWidthMm,cartonHeightMm:input.cartonHeightMm,grossWeightKg:input.grossWeightKg});
+   if(cartonProblem)throw new DomainError(cartonProblem,400);
    const updated=await transaction(async c=>{
     const translation=(await c.query('SELECT * FROM product_translations WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[input.translationId])).rows[0];if(!translation)throw new DomainError('产品语言版本不存在',404);
     const product=(await c.query('SELECT * FROM products WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[translation.product_id])).rows[0];if(!product)throw new DomainError('产品不存在',404);
     if(new Date(product.updated_at).getTime()!==new Date(input.expectedProductUpdatedAt).getTime()||new Date(translation.updated_at).getTime()!==new Date(input.expectedTranslationUpdatedAt).getTime())throw new DomainError('产品已被其他人修改，请刷新后重试',409);
-    const nextProduct=(await c.query('UPDATE products SET min_order_quantity=$2,lead_time_days=$3 WHERE id=$1 RETURNING *',[product.id,input.minOrderQuantity,input.leadTimeDays])).rows[0];
+    const nextProduct=(await c.query('UPDATE products SET min_order_quantity=$2,lead_time_days=$3,carton_quantity=$4,carton_length_mm=$5,carton_width_mm=$6,carton_height_mm=$7,gross_weight_kg=$8 WHERE id=$1 RETURNING *',[product.id,input.minOrderQuantity,input.leadTimeDays,input.cartonQuantity,input.cartonLengthMm,input.cartonWidthMm,input.cartonHeightMm,input.grossWeightKg])).rows[0];
     const nextTranslation=(await c.query("UPDATE product_translations SET order_unit=$2,packaging_details=$3,customization_details=$4,sample_policy=$5,publish_status='draft' WHERE id=$1 RETURNING *",[translation.id,input.orderUnit,input.packagingDetails,input.customizationDetails,input.samplePolicy])).rows[0];
     await audit(c,actor,'products','update',product,nextProduct);await audit(c,actor,'product_translations','update',translation,nextTranslation);
-    return {id:translation.id,updated_at:nextTranslation.updated_at};
+    return {id:translation.id,updated_at:nextTranslation.updated_at,packing:packingSummary(packingSpecFromRow(nextProduct as Row))};
    });return response(updated);
   }
   if(path[0]==='meta')return response({actor,resources:resources.filter(r=>canRead(actor,r)).map(r=>({...r,writable:canWrite(actor,r)})),locales:await query('SELECT id,code,native_name FROM locales WHERE is_enabled ORDER BY sort_order,code')});

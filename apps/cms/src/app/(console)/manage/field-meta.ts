@@ -52,6 +52,7 @@ export const fieldLabels:Record<string,string>={
  material_code:'物料编号',data_type:'数据类型',variant_name:'变体名称',quantity:'数量',
  min_order_quantity:'起订量（MOQ）',order_unit:'订购单位',lead_time_days:'参考交期（天）',
  packaging_details:'包装方式',customization_details:'可定制内容',sample_policy:'样品政策',
+ carton_quantity:'每箱数量',carton_length_mm:'外箱长（mm）',carton_width_mm:'外箱宽（mm）',carton_height_mm:'外箱高（mm）',gross_weight_kg:'每箱毛重（kg）',
  specification_notes:'规格 / 定制要求',target_delivery_on:'期望交付日期',preferred_incoterm:'意向贸易条款',
  value_text:'文本值',value_number:'数值',value_boolean:'布尔值',is_comparable:'可用于比较',is_filterable:'可用于筛选',
 

@@ -24,3 +24,4 @@ export * from './geo-monitoring';
 
 export * from './service';
 export * from './trade-operations';
+export * from './packing';

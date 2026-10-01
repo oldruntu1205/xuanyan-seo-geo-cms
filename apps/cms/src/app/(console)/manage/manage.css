@@ -142,3 +142,10 @@ body{background:#f7f8f4;color:#1d382f}
 .trade-editor-body{padding:27px}
 .trade-editor-body>small{display:block;margin-top:16px;color:#627c67;line-height:1.6}
 @media(max-width:650px){.trade-editor-body{padding:17px}}
+/* 装箱估算：只有箱规填全时才输出数字，未填全只显示原因 */
+.trade-packing{margin:18px 0 4px;padding:16px 18px;border:1px solid #d5e0d2;border-radius:8px;background:#f7faf5}
+.trade-packing p{margin:0 0 10px;font-size:13px}
+.trade-packing small{display:block;margin-top:8px;color:#627c67;line-height:1.6;font-size:12px}
+.trade-packing table{width:100%;border-collapse:collapse;font-size:12px}
+.trade-packing th,.trade-packing td{padding:7px 9px;border-bottom:1px solid #e0e8dc;text-align:left}
+.trade-packing th{color:#5c7361;font-weight:600;background:#eef4ea}
