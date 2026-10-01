@@ -63,6 +63,7 @@ try{
  const job=(await c.query("INSERT INTO publish_jobs(job_type,entity_type) VALUES('rebuild','site') RETURNING id")).rows[0];await c.query("UPDATE publish_jobs SET status='processing' WHERE id=$1",[job.id]);
  await c.query("UPDATE content_item_translations SET deleted_at=now() WHERE id=$1",[translation.id]);assert.equal((await c.query("SELECT count(*)::int AS n FROM site_paths WHERE path='/en/verify-new'")).rows[0].n,0);
  await c.query('ROLLBACK');await c.end();c=null;console.log('Constraints, FTS, soft delete, updated_at and 301 trigger checks passed.');
+ await run(['--import','tsx','tests/geo-monitoring.integration.ts']);
  await run(['--import','tsx','tests/integration.ts']);
  await run(['infrastructure/scripts/migrate.mjs','down','000']);await migrateBusinessUpAndVerify();await migrateBusinessUpAndVerify();
  const record={timestamp:new Date().toISOString(),postgres:version,forward:true,payloadBootstrap:true,migration025:true,clientRoleEnum:true,rollback:true,reapply:true,idempotentRunner:true,constraints:true,integration:true};
