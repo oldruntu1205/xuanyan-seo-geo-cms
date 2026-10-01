@@ -358,8 +358,10 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 | 质量门（发布前，按**产品范围**判定） | ① 三字段非空 ② 无占位文案（多语言占位句 + 「这个是量筒」残留）③ 拉丁语系不得残留 CJK ④ 必须保留各自最大容量与 `mL` ⑤ 不得出现原文没有的商务承诺（MOQ/交期/样品/包装/定制）。**结果 21/21 通过** |
 | 结果 | 发布 21/21 HTTP 202 → 发布任务清零 → 全站重建完成 → **公网 21/21 页面 200 且含 SKU**（如 `/de/products/a-ji-boli-liangtong`） |
 | 判定 SQL（`api.ts:73` 同款） | **de/en/es/fr/it/ja/ko/pt/zh 全部 = 3** 个可选产品（此前除 zh/en 外全为 0） |
-| ⚠️ 发现（未修，已记录） | `/tmp/publish-translations.sh` 的占位文案闸门 SQL **没有按产品过滤**：`... WHERE l.code='zh' AND (description||short_description) LIKE '%这个是量筒%'` —— 已被"下线的旧占位产品"原文命中（实测 1 条），会导致**合法发布被误拦**。正确口径应限定在"本次要发布的草稿所属产品"（实测 scoped = 0）。本机已按正确口径实现新脚本；服务器脚本副本待同步修正 |
+| ⚠️ 发现（已修，2026-10-01 晚） | `/tmp/publish-translations.sh` 原有**三处缺陷**：① 占位文案闸门**不按产品过滤** → 被"已下线的历史占位产品"原文**误拦合法发布**（实测命中 1 条）；② 发布集合是「**所有**非中文草稿」→ 会把该历史产品遗留的 **8 条垃圾译文推上线**；③ 全程**不看 `deleted_at`** → 产品删除后其草稿仍被算作待发布。现已统一用「**未删除（LIVE）** + **来源非占位（EXCLUDE）**」口径约束闸门与发布集合，并打印「因占位来源被跳过=N」。**脚本已从 `/tmp` 移入版本管理**：[`infrastructure/scripts/publish-translations.sh`](../../infrastructure/scripts/publish-translations.sh)（随 `prod-deploy.sh` 同步到服务器），实测闸门四数全 0、退出码 0 |
 | 回滚 | 对 21 条译文逐个 `unpublish` + 重建全站；或用 `/root/suns-backups/static-site_*.tar.gz` 覆盖产物 |
+
+**同日删除历史占位产品**：`DELETE /api/v1/records?resource=products`（body `{key:{id}}`，`a393e99c-…`）→ 连带软删其 9 条译文；删除前 `published_documents` = 0、公开站无影响。删除后 prod 仅剩 3 个真实产品，发布脚本的干扰源随之消失。
 
 
 
