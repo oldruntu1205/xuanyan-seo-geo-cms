@@ -45,7 +45,7 @@
 | G3 | **超额拦截（日/月任一）**：`spent+reserved+cost > daily_limit` **或** `> monthly_limit` → reason=`GEO 日度或月度预算不足` | 同上，`blocked_budget`；且**日与月两条边界都要各测一次** | `:79` |
 | G4 | **账本守恒**：`reserve` 只加 `reserved_usd`；`release` 减 `reserved_usd`、加 `spent_usd`，成功才 `sample_count+1` | 一次成功采样后：`reserved` 回到基线、`spent` 增加**实际**成本、`sample_count+1` | `:80, :81, :106` |
 | G5 | **释放不会把 reserved 扣成负数**（`greatest(0, …)`） | 构造 `reserved=0` 再 release → 停在 0，不出 CHECK 违约 | `:81` |
-| G6 | **失败路径必须释放预留并留下可诊断痕迹** | ⚠️ **必须按抛点分两种各测一次**（本轮实测两者行为**不同**，见 §2.5）：<br>**(a) 抛点在成功事务之前**（如模型返回非 JSON）→ ① job=`failed` ② `reserved` 回基线 ③ `spent` **不**增 ④ `sample_count` **不**增 ⑤ target.`last_error` 有值 —— **实测通过**。<br>**(b) 抛点在成功事务之内** → **实测未生效**（job 卡 `processing`、预留泄漏），期望值待 L1 裁定，见 **G53** | `:108` |
+| G6 | **失败路径必须释放预留并留下可诊断痕迹** | ⚠️ **必须按抛点分两种各测一次**（本轮实测两者行为**不同**，见 §2.5）：<br>**(a) 抛点在成功事务之前**（如模型返回非 JSON）→ ① job=`failed` ② `reserved` 回基线 ③ `spent` **不**增 ④ `sample_count` **不**增 ⑤ target.`last_error` 有值 —— **实测通过**。<br>**(b) 抛点在成功事务之内** → **修复后已实测通过**（job=`failed`、`reserved` 归零、`last_error` 有值）；**修复前**是 job 卡 `processing` + 预留泄漏 —— 请把 (b) 作为**回归断言**保留，见 **G53** | `:108` |
 | G7 | **两个并发 Worker 不得拿到同一个 job**（`FOR UPDATE OF j SKIP LOCKED`） | 同一 region 两个 `claimGeoSampleJob` 并发 → 恰好一个返回 job、另一个返回 `null`；job 只有一行 `processing` | `:83` |
 | G8 | **跨区隔离**：只认 `r.code = $1` 且 `r.is_enabled` | A 区的 job，B 区 worker claim 返回 `null`；地区被停用后同区也拿不到 | `:83` |
 | G9 | **采样计价用 job 上的费率快照，不读 profile 现价** | claim 后修改 profile 单价 → 再 process，成本仍按**旧费率**算 | `:84, :98` |
@@ -138,7 +138,7 @@
 
 ---
 
-## 2.5 本轮取证新增（★ 含一个**已知缺陷**，期望值待 L1 裁定）
+## 2.5 本轮取证新增（★ 含一个**已修复缺陷 G53**，请作为回归断言保留）
 
 ### A. 原子性注入手法（G27b 的可执行做法，**已实测跑通**）
 
@@ -165,17 +165,17 @@ VALUES($1,'sentinel','哨兵',false,1,$2,'p','US','B',repeat('0',64),'manual');
 | **哨兵行仍在**（证明是 ROLLBACK 而非先写后删） | ✅ |
 | `geo_daily_rollups` 不建行 | ✅ 0 → 0 |
 
-### B. ★ 已知缺陷（G53）：**成功事务内失败时，补偿事务不可达** —— 预留会泄漏、job 永久卡 `processing`
+### B. ★ G53：**成功事务内失败时，补偿事务曾不可达** —— 已修复（2026-10-01），请作为**回归断言**保留
 
-**实测三条（同一脚本，与 G6(a) 对照）**
+**修复前的实测三条（同一脚本，与 G6(a) 对照）**
 
 | 抛点 | job 终态 | `reserved_usd` | target.last_error |
 | --- | --- | --- | --- |
 | **事务之前**（模型返回非 JSON） | `failed` ✅ | 0.00046 → **0** ✅ | 有值 ✅ |
 | **事务之内**（哨兵注入撞唯一约束） | 仍 **`processing`** ❌ | 0.00046 → **0.00046（未释放）** ❌ | **null** ❌ |
 
-**根因（已用最小实验证实）**：[`geo-monitoring.ts:101`](../packages/domain/src/geo-monitoring.ts#L101) 写的是
-`return transaction(async c=>{…})` —— **`return` 后面没有 `await`**。JS 里 `return <promise>` 在 `try` 内**不会**把 rejection 交给 `catch`：
+**根因（已用最小实验证实）**：[`geo-monitoring.ts:101`](../packages/domain/src/geo-monitoring.ts#L101) 原为
+`return transaction(async c=>{…})` —— **`return` 后面缺 `await`**。JS 里 `return <promise>` 在 `try` 内**不会**把 rejection 交给 `catch`：
 
 ```
 return await Promise.reject(...)  → caught: boom        （catch 生效）
@@ -184,16 +184,29 @@ return       Promise.reject(...)  → 未捕获，rejected: boom （catch 被跳
 
 于是 `:108` 那个「release 预留 + job→failed + 写 target.last_error」的补偿事务，**对它唯一存在的理由（事务内失败）恰好不可达**。
 
-**影响**：每次事务内失败都留下 ① 一条永久 `processing` 的 job ② 一笔永不回退的 `reserved_usd`（日/月两个窗口各一份），直到 `recoverGeoJobs()` 的 **10 分钟**兜底扫描才回收（G51）。多次失败会持续累积预留，**可能让预算看起来"已用尽"而实际没花一分钱**。
+**影响**：每次事务内失败都会留下 ① 一条永久 `processing` 的 job ② 一笔永不回退的 `reserved_usd`（日/月两个窗口各一份），直到 `recoverGeoJobs()` 的 **10 分钟**兜底扫描才回收（G51）。多次失败会持续累积预留，**可能让预算看起来"已用尽"而实际没花一分钱**。
 
-**最小修法（一行，建议 L1 裁定）**：
+**修复（L1 裁定"修"，2026-10-01 落地，就一个词）**：
 
 ```ts
--  return transaction(async c=>{ … });
+-  return    transaction(async c=>{ … });
 +  return await transaction(async c=>{ … });
 ```
 
-**G53 期望值待 L1 裁定**：请先裁定"修 or 不修"，再决定 G53 断言的是**修复后**的行为（事务内失败 → job `failed` + 预留释放 + `last_error` 有值）还是**当前**行为。**不要**把现状写成期望值，否则测试会把缺陷固化。L2 侧**未改动任何产品代码**，等你结论。
+**同类审计（已做，结论：仅此一处）**：全仓 36 处 `try{` + 60 处 `return transaction(...)`，只有本处同时满足「在 `try` 内 + 依赖 `catch` 兜底」；其余要么是**顶层** `return transaction(...)`（无 `catch` 可跳过，无害），要么已经写成 `return await transaction(...)`（如 [`apps/cms/src/server/media.ts:20`](../apps/cms/src/server/media.ts#L20)）。另查 `ai-agent.ts` 的 `processAgentRun`、`crm-sync.ts` 的 `runCrmSyncJob`、`translation.ts` 的 `processTranslationJob` 三处 `try`：内部均用 `query()` 而非 `transaction()`，不受影响。
+
+**修复后实测（同一脚本，`18/18 PASS`；修复前 `12 PASS / 6 FAIL`）**
+
+| 断言 | 修复前 | 修复后 |
+| --- | --- | --- |
+| 事务内失败 → job=`failed` 且有 error_message | ❌ 仍 `processing` | ✅ |
+| `reserved_usd` 回基线 | ❌ 泄漏 0.00046 | ✅ 0.00046 → **0** |
+| target.`last_error` 有值 | ❌ null | ✅ 有值 |
+| 事务整体回滚（`geo_samples` 不增 / rollup 不建行 / **哨兵行仍在**） | ✅ | ✅（未回归） |
+| 成功路径账本（G4） | ✅ | ✅ |
+
+> **给 L1 的断言口径**：**G53 期望"修复后"的行为**（事务内失败 → 补偿事务生效）。这样它同时是一条**防回归**断言 —— 若将来有人把 `await` 去掉，这条必须变红。
+> ✅ 文档中另附本次修复的完整背景；**产品代码改动只有这 1 个词**。
 
 ### C. 夹具坑（本轮实测踩到，L1 写测试时请直接避开）
 
@@ -209,7 +222,7 @@ return       Promise.reject(...)  → 未捕获，rejected: boom （catch 被跳
 ```
 geo 配置校验（G37–G46, G33–G35）      ← 纯校验，最便宜，先落地
 geo 预算账本（G1–G6, G43）            ← 核心价值，必须覆盖（G6 要分两个抛点）
-geo 事务原子性与补偿（G27b, G53）      ← ★ 本轮已定位一个缺陷，见 §2.5 B
+geo 事务原子性与补偿（G27b, G53）      ← ★ G53 已修复，作防回归断言，见 §2.5 B
 geo 并发认领（G7–G9, G15–G17）        ← SKIP LOCKED，唯一能证明"不会重复扣费/重复采样"
 geo 采样结果（G18–G28，替身 LLM）
 geo 安全（G29–G32）                  ← 脱敏 + 加密 + 篡改
@@ -218,7 +231,7 @@ geo worker（G47–G51）
 
 **优先级建议**：P0（G1–G9）与 G29/G30/G32 先做。理由：一是**钱**，二是**密钥/脱敏**，三是这两组一旦回归，人工验收几乎发现不了（采样是异步的、金额是小数的）。
 
-**G27b / G53 请优先裁定**（见 §2.5 B）：它决定"预算账本"这一组断言的**期望值方向**，越早定越省返工。
+**G53 已按 L1 裁定修复**（见 §2.5 B）：它现在是一条**防回归断言**，期望"修复后"的行为。
 **已按实测订正的两条**：G38 / G39（v1 把"归一化后应通过"误写成"应拒绝"，见 §2 P4 的对照表）。
 
 ## v1 → v2 修订记录（2026-10-01）
@@ -229,7 +242,7 @@ geo worker（G47–G51）
 | **G39** | 同类错误：写 `cn` → 400 | 订正：`"cn"` 通过并落库 `CN`；只有 `"C"` 被领域层拒 |
 | **G27** | 只断言成功路径，无法排除部分提交 | 拆出 **G27b**（哨兵注入 → 断言整事务回滚）+ 给出可执行做法 |
 | **G6** | 笼统说"失败路径要释放预留" | 拆成 **(a) 事务之前**（实测通过）/ **(b) 事务之内**（实测失败，见 G53） |
-| **新增 G53** | — | ★ 记录 `geo-monitoring.ts:101` 缺 `await` 导致补偿事务不可达（含最小实验证据与一行修法），**期望值待 L1 裁定** |
+| **新增 G53** | — | ★ 记录 `geo-monitoring.ts:101` 缺 `await` 导致补偿事务不可达；**L1 裁定"修"，已落地（1 个词）并实测 18/18 全绿**，作为防回归断言保留 |
 | §2.5 C | — | 新增 4 条夹具坑（`ensureActor` email 唯一键、`geo_samples` 额外 NOT NULL 列、fake LLM 形状不同、账本跨用例共享） |
 
 ---
