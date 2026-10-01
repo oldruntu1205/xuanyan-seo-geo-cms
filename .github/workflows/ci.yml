@@ -30,6 +30,11 @@ jobs:
       # 3F000 失败，根因就是这个顺序；与 db:verify 内部的 bootstrap 顺序保持一致。）
       - run: pnpm auth:migrate
         env: {NODE_ENV: production}
+      # E-10 守卫（2026-10-01）：`auth:migrate` 会**偶发零输出空跑**（payload migrate 0.3s 退出 0，
+      # 连 email-adapter WARN 都没有），于是 payload_internal 没建出来，下面 db:migrate 会在 025 上报
+      # `schema "payload_internal" does not exist` —— 与已修复的 E-8（步骤顺序）**形状相同但根因不同**。
+      # 这一步把"静默空跑"变成**响亮失败**并指明该查哪里，避免下一个人再去改步骤顺序。
+      - run: node infrastructure/scripts/assert-payload-schema.mjs
       - run: pnpm db:migrate
       - run: pnpm typecheck
       - run: pnpm test
