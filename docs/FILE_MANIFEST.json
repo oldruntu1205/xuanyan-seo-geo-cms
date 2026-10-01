@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T07:40:03.870Z",
+  "generatedAt": "2026-10-01T07:44:08.527Z",
   "fileCount": 256,
   "files": [
     {
@@ -744,8 +744,8 @@
     },
     {
       "path": "docs/待验收与遗留清单.md",
-      "bytes": 46493,
-      "sha256": "9c2fa5e53c114e3a946d76f48e870306f9847686a0b3d8a4fc98bb4d8361d8ce"
+      "bytes": 47462,
+      "sha256": "2a9e78c31449bf84716902dc9629af199aa7fc9fcbe6a50a12a5d91b3b0aced7"
     },
     {
       "path": "docs/后台易用性改造方案.md",
