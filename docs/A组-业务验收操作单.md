@@ -199,3 +199,36 @@ ssh root@43.132.209.126 'PROD_CONFIRM=1 node /root/verify-a-prod-trade.mjs'   # 
 5. **A-7**：需要另一台机器，属基础设施投入，最慢。
 
 > ⚠️ 我没有代你在 prod 上写任何 GEO/内容配置：A-6(a) **会花钱**、A-3 涉及你的**真实资料**，这两类决定不该由我替你下。若你希望我先做**零成本的配置前置**（例如按 `site_default` 建一个 GEO 模型 profile，让只剩"启用预算 + 建目标"两步），说一声我就做。
+
+### 7.1 ✅ 已完成的零成本前置（2026-10-01，经用户授权）
+
+**做了什么**：在 prod 建了 **1 行** `geo_model_profiles`（**只此一行**，未启用预算、未建目标、未采样）。
+
+| 字段 | 值 |
+| --- | --- |
+| `code` | `deepseek-flash` |
+| `display_name` | DeepSeek Flash（复用站点密钥·峰值上限价） |
+| `provider` / `model` | DeepSeek / `deepseek-flash` |
+| `endpoint` | `https://api.deepseek.com/chat/completions`（与站点 AI 设置**逐字符一致** —— `credential_source='site_default'` 的硬要求，不一致会 400） |
+| `credential_source` | `site_default`（**复用站点密钥，不存新密钥**） |
+| `input_usd_per_million` | **0.300000** |
+| `output_usd_per_million` | **1.200000** |
+| `max_output_tokens` | 1200 |
+| `is_enabled` | true |
+
+**单价的出处与口径（这条直接决定预算闸门准不准）**
+
+- 来源：**DeepSeek 官方定价页** [Models & Pricing](https://api-docs.deepseek.com/quick_start/pricing/)（非记忆、非截图）。
+- `deepseek-flash` = **DeepSeek-V4.1-Flash**。官方数字（每 1M tokens）：输入 cache-miss 非峰值 **$0.15** / 峰值 **$0.30**；输出 非峰值 **$0.60** / 峰值 **$1.20**；cache-hit 与 V4-Pro 见该页。
+- 本项目成本公式是 `(4000×inputRate + maxOutputTokens×outputRate)/1e6`，**不区分峰值/非峰值、也不区分缓存命中**。因此取 **峰值 + cache-miss** 作为**上限**：闸门只会**早拦**、不会漏拦（代价：成本记账**偏保守**，非峰值时段最多高估约 2 倍）。
+- ⚠️ **若你确认采样只发生在非峰值时段**，可在后台把单价改成 `0.15 / 0.60`（一行 diff 的量级）；改错方向的风险是**闸门偏松**，所以我默认选了保守侧。
+- ⚠️ **绝对不要填 0**：预估费用会变成 0，**预算闸门形同失效** —— 会真实扣费却记不出成本。
+
+**验证证据**（prod 上执行，`.runtime/prod-geo-model-prep.mjs`，**9/9 PASS**）：端点一致性、`site_default`、单价数值、已启用，以及**零成本三项断言** —— 预算 `is_enabled=false`、采样目标 0、采样任务/样本 0。
+
+**回滚**：`DELETE FROM geo_model_profiles WHERE code='deepseek-flash';`（只删这一行，不影响其他配置；删除前建议先确认没有启用中的 target 引用它）。
+
+**现在 A-6(a) 只剩 3 步（其中 2 步是你的决定）**：
+1. **建固定问题**（增长研究 → GEO 监测）—— 需要你定"监测哪个问题 + **品牌名**"，这是业务内容，我不代拟；
+2. **启用预算**（GEO 监测中心；当前日 5 / 月 50，`is_enabled=false`）—— ⚠️ 开了就真花钱；
+3. **建采样目标**（选刚建好的 `deepseek-flash` 模型 + `local` 地区 + 上面的固定问题）。
