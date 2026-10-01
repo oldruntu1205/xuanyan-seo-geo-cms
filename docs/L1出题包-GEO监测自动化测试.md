@@ -27,7 +27,7 @@
    - (a) 扩写 [`tests/integration.ts`](../tests/integration.ts)（已有真库集成测试，由 `node infrastructure/scripts/verify.mjs --local-runtime` 驱动）；
    - (b) 新建 `tests/geo-monitoring.integration.ts`，并让 `verify.mjs` 调用它。
    **两者都必须由 `verify.mjs` 那条链跑到**，否则等于没测。
-3. **绝不允许真打外部 LLM**。`processGeoSampleJob` 会 `callLLMChat` 到真实 endpoint。请用替身（先例：`.runtime/fake-llm-server.mjs` 假 LLM 服务；或注入/替换 `callLLMChat`）。**不要**在测试里放真实 API Key。
+3. **绝不允许真打外部 LLM**。`processGeoSampleJob` 会 `callLLMChat` 到真实 endpoint。请用替身。⚠️ 现成的 [`.runtime/fake-llm-server.mjs`](../.runtime/fake-llm-server.mjs) 是**翻译专用**（回 `{"translations":{…}}`），**不能直接复用**；GEO 需要 `{"answer":"…","citations":[…]}`（见 §2.5 C.3）。fake 的端点可以是 `http://127.0.0.1:<port>/…` —— `normalizeLLMEndpoint` 明确放行 loopback（[`llm.ts:32`](../packages/domain/src/llm.ts#L32)），所以走 `credential_source='profile'` 即可，无需真实密钥。**不要**在测试里放真实 API Key。
 4. **不许改 `database/001–026`**（已应用迁移带 sha256 登记，改动会中止发布）。GEO 要用到的表在 017/014 里**已经存在**，不需要新迁移。
 5. 夹具自清：GEO 用例会写 `geo_*` 与 `geo_samples`/`geo_daily_rollups`。请**每个用例自己建、自己删**（`geo_monitor_targets` 删除会 CASCADE 掉 jobs/rollups；`geo_samples.monitor_job_id` 是 `ON DELETE SET NULL`，需单独清）。测试结束后 `SELECT count(*)` 断言归零。
 6. `GEO_MONITOR_SECRET` 是**环境变量**（prod 为 96 字符）。测「缺密钥」分支时用**子进程/临时改 env** 的方式，别把进程级 env 弄脏影响其他用例。
@@ -45,7 +45,7 @@
 | G3 | **超额拦截（日/月任一）**：`spent+reserved+cost > daily_limit` **或** `> monthly_limit` → reason=`GEO 日度或月度预算不足` | 同上，`blocked_budget`；且**日与月两条边界都要各测一次** | `:79` |
 | G4 | **账本守恒**：`reserve` 只加 `reserved_usd`；`release` 减 `reserved_usd`、加 `spent_usd`，成功才 `sample_count+1` | 一次成功采样后：`reserved` 回到基线、`spent` 增加**实际**成本、`sample_count+1` | `:80, :81, :106` |
 | G5 | **释放不会把 reserved 扣成负数**（`greatest(0, …)`） | 构造 `reserved=0` 再 release → 停在 0，不出 CHECK 违约 | `:81` |
-| G6 | **失败/中断路径必须释放预留** | 让替身 LLM 抛错 → ① job=`failed` ② `reserved` 回基线 ③ `spent` **不**增加 ④ `sample_count` **不**增加 ⑤ target.`last_error` 有值 | `:108` |
+| G6 | **失败路径必须释放预留并留下可诊断痕迹** | ⚠️ **必须按抛点分两种各测一次**（本轮实测两者行为**不同**，见 §2.5）：<br>**(a) 抛点在成功事务之前**（如模型返回非 JSON）→ ① job=`failed` ② `reserved` 回基线 ③ `spent` **不**增 ④ `sample_count` **不**增 ⑤ target.`last_error` 有值 —— **实测通过**。<br>**(b) 抛点在成功事务之内** → **实测未生效**（job 卡 `processing`、预留泄漏），期望值待 L1 裁定，见 **G53** | `:108` |
 | G7 | **两个并发 Worker 不得拿到同一个 job**（`FOR UPDATE OF j SKIP LOCKED`） | 同一 region 两个 `claimGeoSampleJob` 并发 → 恰好一个返回 job、另一个返回 `null`；job 只有一行 `processing` | `:83` |
 | G8 | **跨区隔离**：只认 `r.code = $1` 且 `r.is_enabled` | A 区的 job，B 区 worker claim 返回 `null`；地区被停用后同区也拿不到 | `:83` |
 | G9 | **采样计价用 job 上的费率快照，不读 profile 现价** | claim 后修改 profile 单价 → 再 process，成本仍按**旧费率**算 | `:84, :98` |
@@ -77,6 +77,7 @@
 | G25 | **趋势只统计同 hash 样本**：`configurationChanged` = 历史行数 ≠ 可比行数 | 改 endpoint 后再采样 → 该 target `configurationChanged=true`，且 `samples/mentionRate/costUsd` 只算新 hash | `:113-115` |
 | G26 | **成功率当 total=0 时为 `null` 而不是 `NaN`**（`mentionRate` / `avgLinksPerSample`） | 新 target 无样本 → 两者 `null`，不是 `0/0=NaN` | `:115` |
 | G27 | 一次成功采样必须在**同一事务**里完成五件事：写 `geo_samples`、upsert `geo_daily_rollups`、release、job→`completed`、target `last_run_at` 且 `last_error` 清空 | 全部成立；`geo_daily_rollups` 的 `(day,target_id,config_hash)` 二次采样是**累加**不是插新行 | `:101-106` |
+| **G27b** | **★ 原子性反证（不只是成功路径）**：事务中途失败时**五项写入必须全部回滚**，不得部分提交 | 用 §2.5 的哨兵注入法让事务内 INSERT 撞唯一约束 → ① `geo_samples` **不增** ② `geo_daily_rollups` **不建行** ③ 账本 `spent`/`sample_count` **不变** ④ **预置的哨兵行仍在**（证明是 ROLLBACK，而不是"先写后删"）。<br>⚠️ 注意：`reserved`/job 状态/target.last_error 属于**补偿事务**的职责，不在本事务内 —— 那部分由 **G53** 单独断言 | `:101-107` |
 | G28 | rollup 的 `duration_ms` 也累加、`avgDurationMs = round(duration/samples)` | 两次采样后平均时长等于手算 | `:105, :115` |
 
 ### P3 · 安全与配置校验
@@ -97,8 +98,26 @@
 | # | 不变量 | 期望 | 依据 |
 | --- | --- | --- | --- |
 | G37 | 地区 `code` **创建后不可更改** | 400 `地区代码用于 Worker 路由，创建后不可更改` | `:50` |
-| G38 | `code` 规范 `^[a-z0-9][a-z0-9_-]{1,39}$`（**先 trim + 小写**） | 大写/空格/单字符 → 400 `代码需为 2–40 位…` | `:12` |
-| G39 | `country_code` 必须两位大写字母 | `cn` / `CHN` → 400 `国家代码应为两个大写字母` | `:48` |
+| G38 | **`code` 归一化后**再判 `^[a-z0-9][a-z0-9_-]{1,39}$`（`trim().toLowerCase()` 在前）—— ⚠️ **出题包 v1 此处写错，已按实测订正** | 见下方「G38/G39 实测对照」：**大小写与前后空格都必须通过**（`" CN "`、`"A-B_9"` 均 201）；只有**长度越界**与**非法字符**才拒 | `:12` |
+| G39 | **`country_code` 归一化后**再判 `^[A-Z]{2}$`（`trim().toUpperCase()` 在前）—— ⚠️ **同 G38，v1 写错** | `"cn"` → **通过**并落库 `CN`；`"CHN"`、`"c n"` 被 **zod 长度**拒；`"C"` 才由**领域层**拒（`国家代码应为两个大写字母`） | `:48` |
+
+**G38 / G39 实测对照（2026-10-01，本地栈真实 HTTP，`.runtime/probe-geo-code-normalization.mjs`）**
+
+| 输入 | HTTP | 拒绝来源与文案 | 落库值 |
+| --- | --- | --- | --- |
+| `code=" CN "` | **201** | — | `cn` |
+| `code="A-B_9"` | **201** | — | `a-b_9` |
+| `code=" CN-T "` | **201** | — | `cn-t` |
+| `code="c"` | 400 | **zod**：`code: String must contain at least 2 character(s)` | — |
+| `code="a b"`（内嵌空格） | 400 | **领域层**：`代码需为 2–40 位小写字母、数字、下划线或短横线` | — |
+| `code=41 字符` | 400 | **zod**：`code: String must contain at most 40 character(s)` | — |
+| `countryCode="cn"` | **201** | — | `CN` |
+| `countryCode="CHN"` | 400 | **zod**：`countryCode: String must contain at most 2 character(s)` | — |
+| `countryCode="C"` | 400 | **领域层**：`国家代码应为两个大写字母` | — |
+| `countryCode="c n"` | 400 | **zod**：超 2 字符 | — |
+
+> ⚠️ **两道门别混为一谈**：HTTP 层 `v2-api.ts:51` 的 zod（`code` 2–40 字符、`countryCode` ≤2 字符）**排在前面**，领域层 `geo-monitoring.ts:12/48` 的归一化+regex 是**第二道门**。断言「错误文案」时必须区分是哪一层抛的，否则会写出一条永远无法满足的期望。
+> ⚠️ 另一个实测细节：`description` / `countryCode` 是 `z.string().optional()`，**只 optional 不 nullable** → 传 `null` 会被 zod 拒（`Expected string, received null`）。夹具里请**整个键省略**。
 | G40 | **启用 target 前，prompt/model/region 必须都已启用** | 400 `启用目标前，请启用问题、模型和地区` | `:54` |
 | G41 | **已有 target 不能换 prompt/model/region** | 400 `问题、模型和地区不可在现有目标上更换；请新建组合`（DB 另有 `UNIQUE(prompt_id,model_profile_id,region_id)`） | `:56` |
 | G42 | 重新启用或改 `interval_minutes` → `next_run_at = now()`（立即调度）；同时清 `last_error` | 精确断言 | `:57` |
@@ -119,11 +138,78 @@
 
 ---
 
+## 2.5 本轮取证新增（★ 含一个**已知缺陷**，期望值待 L1 裁定）
+
+### A. 原子性注入手法（G27b 的可执行做法，**已实测跑通**）
+
+不改产品代码，只用数据前置：
+
+```sql
+-- ① 正常走完：建 prompt / model(profile 凭证，指向假 LLM) / region / budget(启用) / target
+-- ② 入队并认领，拿到 status='processing' 的 job（此时 reserved_usd 已预留）
+-- ③ ★ 注入：预置一行 monitor_job_id = 该 job id 的样本（模拟"上一轮崩溃留下的残留"）
+INSERT INTO geo_samples(prompt_id,model,answer,brand_mentioned,duration_ms,monitor_job_id,
+  prompt_snapshot,market_snapshot,brand_snapshot,config_hash,sample_kind)
+VALUES($1,'sentinel','哨兵',false,1,$2,'p','US','B',repeat('0',64),'manual');
+-- ④ 调 processGeoSampleJob(job) → 事务内第 2 步 INSERT 撞 geo_samples_monitor_job_id_key（017 加的 UNIQUE）
+```
+
+**为什么这不是"人造错误"**：`monitor_job_id` 的 UNIQUE 正是为了防重复采样；而"上次处理到一半留下样本"是真实的崩溃/重放场景。
+
+**实测结果（2026-10-01，本地运行时库，`.runtime/probe-g27-atomicity.mts`）——事务本身的回滚是**正确**的**：
+
+| 断言 | 实测 |
+| --- | --- |
+| 事务内失败会抛出 | ✅ `duplicate key ... geo_samples_monitor_job_id_key` |
+| `geo_samples` 不新增 | ✅ 1 → 1 |
+| **哨兵行仍在**（证明是 ROLLBACK 而非先写后删） | ✅ |
+| `geo_daily_rollups` 不建行 | ✅ 0 → 0 |
+
+### B. ★ 已知缺陷（G53）：**成功事务内失败时，补偿事务不可达** —— 预留会泄漏、job 永久卡 `processing`
+
+**实测三条（同一脚本，与 G6(a) 对照）**
+
+| 抛点 | job 终态 | `reserved_usd` | target.last_error |
+| --- | --- | --- | --- |
+| **事务之前**（模型返回非 JSON） | `failed` ✅ | 0.00046 → **0** ✅ | 有值 ✅ |
+| **事务之内**（哨兵注入撞唯一约束） | 仍 **`processing`** ❌ | 0.00046 → **0.00046（未释放）** ❌ | **null** ❌ |
+
+**根因（已用最小实验证实）**：[`geo-monitoring.ts:101`](../packages/domain/src/geo-monitoring.ts#L101) 写的是
+`return transaction(async c=>{…})` —— **`return` 后面没有 `await`**。JS 里 `return <promise>` 在 `try` 内**不会**把 rejection 交给 `catch`：
+
+```
+return await Promise.reject(...)  → caught: boom        （catch 生效）
+return       Promise.reject(...)  → 未捕获，rejected: boom （catch 被跳过）
+```
+
+于是 `:108` 那个「release 预留 + job→failed + 写 target.last_error」的补偿事务，**对它唯一存在的理由（事务内失败）恰好不可达**。
+
+**影响**：每次事务内失败都留下 ① 一条永久 `processing` 的 job ② 一笔永不回退的 `reserved_usd`（日/月两个窗口各一份），直到 `recoverGeoJobs()` 的 **10 分钟**兜底扫描才回收（G51）。多次失败会持续累积预留，**可能让预算看起来"已用尽"而实际没花一分钱**。
+
+**最小修法（一行，建议 L1 裁定）**：
+
+```ts
+-  return transaction(async c=>{ … });
++  return await transaction(async c=>{ … });
+```
+
+**G53 期望值待 L1 裁定**：请先裁定"修 or 不修"，再决定 G53 断言的是**修复后**的行为（事务内失败 → job `failed` + 预留释放 + `last_error` 有值）还是**当前**行为。**不要**把现状写成期望值，否则测试会把缺陷固化。L2 侧**未改动任何产品代码**，等你结论。
+
+### C. 夹具坑（本轮实测踩到，L1 写测试时请直接避开）
+
+1. **`ensureActor` 不是按 email 幂等的** —— 它是 `INSERT INTO users(id,email,…) ON CONFLICT(id) DO UPDATE`（[`crud.ts:40`](../packages/domain/src/crud.ts#L40)），**不覆盖 email 唯一键**。同一 email 换个新 id 会撞 `users_email_key`。夹具请**每次用新 email**（或复用固定 id）。
+2. **`geo_samples` 的 NOT NULL 列远不止 014 那几列**：015 把 `prompt_snapshot` / `market_snapshot` / `brand_snapshot` / `config_hash` 改成 NOT NULL（[`015_v21_collaboration.sql:46-57`](../database/015_v21_collaboration.sql#L46)），且 `monitor_job_id` 带 **UNIQUE**（017）。造哨兵行/夹具样本时必须一并给值。
+3. **现有 `.runtime/fake-llm-server.mjs` 不能直接复用** —— 它返回的是翻译形状 `{"translations":{…}}`；`processGeoSampleJob` 要的是 `{"answer":"…","citations":[…]}`。请另写替身（本轮探针里内置了一个最小实现，可直接搬）。
+4. **账本读数的干扰**：`geo_budget_windows` 是**跨用例共享**的（按 period+starts_on 主键）。用例开始前请把 `reserved_usd/spent_usd/sample_count` 归零，否则一次失败用例泄漏的 `reserved` 会让后续断言误判（本轮踩过）。
+
+---
+
 ## 3. 建议的用例组织（供 L1 参考，非强制）
 
 ```
 geo 配置校验（G37–G46, G33–G35）      ← 纯校验，最便宜，先落地
-geo 预算账本（G1–G6, G43）            ← 核心价值，必须覆盖
+geo 预算账本（G1–G6, G43）            ← 核心价值，必须覆盖（G6 要分两个抛点）
+geo 事务原子性与补偿（G27b, G53）      ← ★ 本轮已定位一个缺陷，见 §2.5 B
 geo 并发认领（G7–G9, G15–G17）        ← SKIP LOCKED，唯一能证明"不会重复扣费/重复采样"
 geo 采样结果（G18–G28，替身 LLM）
 geo 安全（G29–G32）                  ← 脱敏 + 加密 + 篡改
@@ -131,6 +217,20 @@ geo worker（G47–G51）
 ```
 
 **优先级建议**：P0（G1–G9）与 G29/G30/G32 先做。理由：一是**钱**，二是**密钥/脱敏**，三是这两组一旦回归，人工验收几乎发现不了（采样是异步的、金额是小数的）。
+
+**G27b / G53 请优先裁定**（见 §2.5 B）：它决定"预算账本"这一组断言的**期望值方向**，越早定越省返工。
+**已按实测订正的两条**：G38 / G39（v1 把"归一化后应通过"误写成"应拒绝"，见 §2 P4 的对照表）。
+
+## v1 → v2 修订记录（2026-10-01）
+
+| 编号 | v1 的问题 | v2 的处理 |
+| --- | --- | --- |
+| **G38** | 自相矛盾：同句既写"先 trim + 小写"又写"大写/空格 → 400" | 按**实测**订正：`" CN "`/`"A-B_9"` 必须**通过**；并区分 **zod 门**与**领域门**的拒绝文案 |
+| **G39** | 同类错误：写 `cn` → 400 | 订正：`"cn"` 通过并落库 `CN`；只有 `"C"` 被领域层拒 |
+| **G27** | 只断言成功路径，无法排除部分提交 | 拆出 **G27b**（哨兵注入 → 断言整事务回滚）+ 给出可执行做法 |
+| **G6** | 笼统说"失败路径要释放预留" | 拆成 **(a) 事务之前**（实测通过）/ **(b) 事务之内**（实测失败，见 G53） |
+| **新增 G53** | — | ★ 记录 `geo-monitoring.ts:101` 缺 `await` 导致补偿事务不可达（含最小实验证据与一行修法），**期望值待 L1 裁定** |
+| §2.5 C | — | 新增 4 条夹具坑（`ensureActor` email 唯一键、`geo_samples` 额外 NOT NULL 列、fake LLM 形状不同、账本跨用例共享） |
 
 ---
 
