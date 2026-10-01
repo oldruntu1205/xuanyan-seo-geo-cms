@@ -381,7 +381,7 @@ python _deploy/pack-prod.py              # 白名单打包 + 安全自检（禁�
 | 部署后行为核验（本轮新加，因为验收脚本只看 200） | ① prod 源码标记：G53 修复=1、funnel 写门=1、`crmWorkspace` 写门=1、`lead-scope.ts`=1；② `.next` server chunks 里含 `lead(actor,true)` → 跑的是新包；③ 角色表：`client` 有 `leads.read`=**true**、`leads.write`=**false**；④ 端到端：未登录 `trade/funnel` **401**、`v2/v21-crm` **401**，管理员两者均 **200**、`trade/workspace` **200**（无回归）；⑤ PM2 `suns-cms`/`suns-worker` online |
 | ⚠️ 未做的一步（诚实） | **没有**在 prod 上做"`client` 账号 → 403"的端到端实测：手上没有 `client-demo@opctools.cloud` 的口令，且我**没有**擅自再建临时账号（prod 账号创建属鉴权面变更）。该结论目前由「本地探针 14/14 + CI + prod 部署产物标记 + prod 权限表实测」共同支撑；要拿到端到端铁证，需给客户端口令或授权建一个**临时** client 账号（用完即删） |
 | 回滚 | 代码/产物：`rm -rf /www/wwwroot/opctools/apps/cms/.next && cp -a /www/wwwroot/opctools/_backup_20261001_144014/.next /www/wwwroot/opctools/apps/cms/.next` 后 `su -s /bin/bash www -c 'PM2_HOME=/home/www/.pm2 pm2 restart suns-cms suns-worker'`；本轮**无数据库迁移**，无需 DB 回滚 |
-| 遗留 | **E-10**（CI 的 `auth:migrate` 偶发零输出空跑，重跑即绿）未修；**不能**用 CI 绿灯替代 Windows 本机验收（G28 那类夹具缺陷正是 Linux 绿/Windows 红） |
+| 遗留 | **E-10**（CI 的 `auth:migrate` 偶发零输出空跑）**2026-10-01 已加固**：CI 该步骤换成 `infrastructure/scripts/ensure-payload-schema.mjs`（自断言 schema + 命中「exit 0 却没建 schema」时自动重试一次，重试仍失败才响亮报错）。⚠️ **底层偶发未修**，机制已收敛为「**加载期事件循环排空**」（`payload/bin.js` 的 `void start()` 非顶层 await → 排空时 exit 0；链上有 esbuild 主动 `unref()` 的 service 子进程），细节与取证见 [待验收与遗留清单.md 的 E-10](../docs/待验收与遗留清单.md)；**不能**用 CI 绿灯替代 Windows 本机验收（G28 那类夹具缺陷正是 Linux 绿/Windows 红） |
 
 
 

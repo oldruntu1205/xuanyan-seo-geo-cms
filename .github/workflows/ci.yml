@@ -28,13 +28,14 @@ jobs:
       # Payload 拥有 payload_internal，业务迁移只消费它 —— 必须先 auth:migrate 建出该 schema，
       # 025_add_client_role_enum.sql 才可能通过。（2026-09-30 首次真实 CI 在 db:migrate 上以
       # 3F000 失败，根因就是这个顺序；与 db:verify 内部的 bootstrap 顺序保持一致。）
-      - run: pnpm auth:migrate
+      # E-10（2026-10-01 取证 + 加固）：`auth:migrate` 会**偶发零输出空跑** —— 进程跑满一次正常
+      # 启动的时长（实测 ~3.9s，不是历史记录的 0.3s）却一个字都不打印、没建出 payload_internal，
+      # 然后 exit 0；紧随其后的 db:migrate 就在 **025** 上报 `schema "payload_internal" does not exist`。
+      # ⚠️ 这个错误形状与已修复的 **E-8**（步骤顺序写错）一样，但根因不同 —— **不要**再去改步骤顺序。
+      # 现在由 ensure-payload-schema.mjs 承担该步骤：先自断言 schema，命中「exit 0 却没建 schema」
+      # 的静默空跑时**原样重试一次**（自愈），重试仍失败才交给 assert-payload-schema.mjs 响亮报错。
+      - run: node infrastructure/scripts/ensure-payload-schema.mjs
         env: {NODE_ENV: production}
-      # E-10 守卫（2026-10-01）：`auth:migrate` 会**偶发零输出空跑**（payload migrate 0.3s 退出 0，
-      # 连 email-adapter WARN 都没有），于是 payload_internal 没建出来，下面 db:migrate 会在 025 上报
-      # `schema "payload_internal" does not exist` —— 与已修复的 E-8（步骤顺序）**形状相同但根因不同**。
-      # 这一步把"静默空跑"变成**响亮失败**并指明该查哪里，避免下一个人再去改步骤顺序。
-      - run: node infrastructure/scripts/assert-payload-schema.mjs
       - run: pnpm db:migrate
       - run: pnpm typecheck
       - run: pnpm test

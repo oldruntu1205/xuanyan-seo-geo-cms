@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-30T15:48:53.367Z",
-  "fileCount": 240,
+  "generatedAt": "2026-10-01T07:40:03.870Z",
+  "fileCount": 256,
   "files": [
     {
       "path": "_deploy/build-prod.ps1",
@@ -9,8 +9,8 @@
     },
     {
       "path": "_deploy/DEPLOY-PROD.md",
-      "bytes": 50242,
-      "sha256": "bc35df3fa41ce18fa7f3bbfc050c04a17ffe97bc127479e848f9c65f898ba593"
+      "bytes": 65905,
+      "sha256": "41ffc2efeb929e3de60d741029a2f839ccc4fc7e1e6a3718342af320c6345775"
     },
     {
       "path": "_deploy/ecosystem.config.cjs",
@@ -49,8 +49,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 1207,
-      "sha256": "973a718cc95abaef7ded335614fd364cb5b8d2c6d4094d71d476f104adcdd1cf"
+      "bytes": 2342,
+      "sha256": "0bb689da63a509205c9609ad005e65a81e1b24d3dc3c5820a3ad0dab1918f573"
     },
     {
       "path": ".gitignore",
@@ -319,8 +319,8 @@
     },
     {
       "path": "apps/cms/src/payload-types.ts",
-      "bytes": 6908,
-      "sha256": "21b2436eaffccdaeb13703574070a95287c6d1ee843deb4e1bcbd29c4208317f"
+      "bytes": 6919,
+      "sha256": "aa2d880599b9b173be417328ad995c5bd8507a5fc247b1298b89c0b240a54825"
     },
     {
       "path": "apps/cms/src/payload.config.ts",
@@ -738,9 +738,14 @@
       "sha256": "dbb45ffe42ad75e5366046ad0521373466d7b7eb2c702ee311f154862275b78f"
     },
     {
+      "path": "docs/产品资料补录与发布操作单.md",
+      "bytes": 10835,
+      "sha256": "e3e1681c4ecd7cc16f57fa02d9b7eb69dc125e194dd46393bf65ff14d6061989"
+    },
+    {
       "path": "docs/待验收与遗留清单.md",
-      "bytes": 12904,
-      "sha256": "f6e48615452146c53427fc987aa10cda930165fb241c89a11dfc6f84ca3c3815"
+      "bytes": 46493,
+      "sha256": "9c2fa5e53c114e3a946d76f48e870306f9847686a0b3d8a4fc98bb4d8361d8ce"
     },
     {
       "path": "docs/后台易用性改造方案.md",
@@ -748,9 +753,24 @@
       "sha256": "178ed464410d82cd4267fd3ce926a463bfcb7d1a3e4fea767b2a889609e9f100"
     },
     {
+      "path": "docs/机翻待审核清单-20261001.md",
+      "bytes": 22564,
+      "sha256": "2bfbaf3fefe0cfb236a9e1546c3a72031edeb555b53671e4865eb826059959fe"
+    },
+    {
+      "path": "docs/宣传页-真机验收清单.md",
+      "bytes": 5104,
+      "sha256": "6ea1072971a54157e9b14ee242e71f1dba92c55431ea87aaa7a93eec3ddca6e9"
+    },
+    {
       "path": "docs/玄砚官网-外贸功能宣传页升级.md",
       "bytes": 3386,
       "sha256": "4ddecfc11d78e97ddb3b961be9bdfe29c17be3d22f01d65f8cf53277e6a7b821"
+    },
+    {
+      "path": "docs/A组-业务验收操作单.md",
+      "bytes": 22870,
+      "sha256": "7816062358fb8f98dd7fca76541f628188ff2efca2d4a9ce2375b26352f3259b"
     },
     {
       "path": "docs/ADMIN-GUIDE.md",
@@ -768,9 +788,14 @@
       "sha256": "41bff4035439b46c53d5d386569ad32398e5c51ee628a51ef3fb259b0b57f7de"
     },
     {
+      "path": "docs/D组-外部服务启用清单.md",
+      "bytes": 9037,
+      "sha256": "46aabe7fb294281fae0fe55f5b4dae0625798d8867ac40a2c801d87c46afa121"
+    },
+    {
       "path": "docs/database-verification.json",
-      "bytes": 332,
-      "sha256": "622b0a8f3c380ac0b9ff9a71c81d4e7bddb2a1d7e98d0269441d301fe67163b4"
+      "bytes": 344,
+      "sha256": "a6b1089ee64f6bbef8e49cd3d93e31ff93ab0842e0e04edc019fad6254805454"
     },
     {
       "path": "docs/DEPLOYMENT.md",
@@ -793,6 +818,26 @@
       "sha256": "c4d705bb1636e8130bda744ddb4b8230103e595de0658a9d43b2e2dc026a30ea"
     },
     {
+      "path": "docs/L1-GEO-review-01.md",
+      "bytes": 19619,
+      "sha256": "dc5625041f0416e06db99e161b04c70e9dbe141c589210f8a04945bb4f0e325d"
+    },
+    {
+      "path": "docs/L1出题包-GEO监测自动化测试.md",
+      "bytes": 26503,
+      "sha256": "32c048c7881f881877416586122fc9152c390eaaf24d14d672e198a3b90b179f"
+    },
+    {
+      "path": "docs/L1回执-GEO测试落地-G28夹具可移植性.md",
+      "bytes": 8872,
+      "sha256": "a084ac8e318fb388c1e605a4bc3f7c92275d6135d4ff850d642964bde339bf40"
+    },
+    {
+      "path": "docs/L1终审包-F3鉴权-lead-scope.md",
+      "bytes": 13259,
+      "sha256": "c8b8f1122a071ef5171bcfb8e1ecd6e1ee2e7d04904a33e66e802903194ff101"
+    },
+    {
       "path": "docs/OPERATIONS.md",
       "bytes": 5481,
       "sha256": "36ed12d8acf5629f08da101a79df6758bf8b352bed84c1484790b769f7c744c8"
@@ -801,6 +846,16 @@
       "path": "docs/PREMIUM-GLASS-UI.md",
       "bytes": 1785,
       "sha256": "ed9b64e576fbc0f0d30d237c42c2955aed196ebf53bbeb86abce4d9d9f8a64d0"
+    },
+    {
+      "path": "docs/suns-geo-test-source-20261001.zip",
+      "bytes": 1269174,
+      "sha256": "b2b22a219307504e809314e3b81a2843dd803fe180da428cdf80e78cfdd9c599"
+    },
+    {
+      "path": "docs/suns-geo-tests-L1-20261001.zip",
+      "bytes": 41238,
+      "sha256": "5a7ed325ac904cb17e226c5cdb892bf4b97a327584d3aa117ee903364908e3bc"
     },
     {
       "path": "docs/V2-IMPLEMENTATION-PLAN.md",
@@ -873,9 +928,19 @@
       "sha256": "fca9fa9f309b9e9459950b0c0021eacdbd2a8b4914284c710bd1d29cbdfdd2d7"
     },
     {
+      "path": "infrastructure/scripts/assert-payload-schema.mjs",
+      "bytes": 4087,
+      "sha256": "9ed9d1b1025838b1294dc74f127b668db88e1142bf876c92fb9037bec83eef0e"
+    },
+    {
       "path": "infrastructure/scripts/backup-db.sh",
       "bytes": 3490,
       "sha256": "86ac677668dfa9357baa411664da321601abb0656de065d933235a36bfa5b48e"
+    },
+    {
+      "path": "infrastructure/scripts/ensure-payload-schema.mjs",
+      "bytes": 8350,
+      "sha256": "aba6d3a8e9e6a864ac38943bbacdfe7a296017dac78e571f66764bdb1691a6f3"
     },
     {
       "path": "infrastructure/scripts/export-source.mjs",
@@ -913,6 +978,11 @@
       "sha256": "60e6914a08e99816a00d3c1fb05cf03fd2a0addda6a8b311016a067de12783a3"
     },
     {
+      "path": "infrastructure/scripts/publish-translations.sh",
+      "bytes": 6392,
+      "sha256": "a02b19b53ff66d16c4df8c08ba6ebd180f230cefa7a5b6d08d0a2d39c57bf7fc"
+    },
+    {
       "path": "infrastructure/scripts/seed-demo-media.mjs",
       "bytes": 11563,
       "sha256": "9d885241782d2584cde6e9cf3e43f08a72ce49180d2b2d657a7f64387f4c9782"
@@ -929,8 +999,8 @@
     },
     {
       "path": "infrastructure/scripts/verify.mjs",
-      "bytes": 10542,
-      "sha256": "2b70a010903189ffcd3c27ce2ccb7dd5e3cfcd93685ad318046f9f574bd5d47d"
+      "bytes": 11285,
+      "sha256": "066ddea71de5d8bd19d85975bc672572a335c6e9109968fc03b69879d13659b5"
     },
     {
       "path": "infrastructure/scripts/verify.ps1",
@@ -974,18 +1044,18 @@
     },
     {
       "path": "packages/domain/src/crm-sync.ts",
-      "bytes": 19113,
-      "sha256": "3ad17720831234fd628225b97fbe6ab6defc9635fff77131033be0589bd191c0"
+      "bytes": 19287,
+      "sha256": "8dd12994e0a5a60802cb1ad48964e7549ba9b14bf9d5ae8bf5b118301c267abe"
     },
     {
       "path": "packages/domain/src/crm.ts",
-      "bytes": 21821,
-      "sha256": "74c170d13d5fa2e8fbe40d52bff90c29068db6e77c5973ec67b7bb2eadabed31"
+      "bytes": 22109,
+      "sha256": "8884b2bc8d9f30668f9c5618b652cdbe098fd34c527c21e261ee4a7d4107a948"
     },
     {
       "path": "packages/domain/src/crud.ts",
-      "bytes": 10377,
-      "sha256": "d86635a414ad2f8da4938e641d7d08d05836bf0d0b3159d537ef9a2a34ae8a8c"
+      "bytes": 10676,
+      "sha256": "e88c03e7560a86f77a864a062c54370075f72fefec4208163580ef2d77f6f8a2"
     },
     {
       "path": "packages/domain/src/db.ts",
@@ -999,8 +1069,8 @@
     },
     {
       "path": "packages/domain/src/geo-monitoring.ts",
-      "bytes": 26865,
-      "sha256": "e1e992fb94ec539368682091bed1e7ba97b6caeabb2bc2ebdd47b59750740753"
+      "bytes": 26871,
+      "sha256": "03c2e319f61cafc053bd24986ce594a491145d7a528a75c380655b8a062bb1b5"
     },
     {
       "path": "packages/domain/src/growth.ts",
@@ -1013,9 +1083,14 @@
       "sha256": "e71686cbac390638de5d1b228c484573005b0afc716a6ad87f7175323b928a6f"
     },
     {
+      "path": "packages/domain/src/lead-scope.ts",
+      "bytes": 2500,
+      "sha256": "f7657c8a00a5ee48ff352d847603993c65323737a5a668dd008525d549867258"
+    },
+    {
       "path": "packages/domain/src/llm.ts",
-      "bytes": 14313,
-      "sha256": "0828091b18b65f651be4ee229c3ee4321d3a302bd8fd26357d0c2a35ded8c766"
+      "bytes": 15697,
+      "sha256": "52c95e527ac91ae0e2739496804d4a346dd009cf577288f92d5bd6a81f433db9"
     },
     {
       "path": "packages/domain/src/marketing.ts",
@@ -1054,8 +1129,8 @@
     },
     {
       "path": "packages/domain/src/trade-operations.ts",
-      "bytes": 20485,
-      "sha256": "d13624127aecf8292d3cbdb22bd0dee9290709539ab47bf9d1985cec2bfce1a2"
+      "bytes": 21003,
+      "sha256": "2537193e0776d989bb2dd2192a9960044cea103a88d77e26f747aa9db8a2ebc1"
     },
     {
       "path": "packages/domain/src/translation-tools.ts",
@@ -1074,8 +1149,8 @@
     },
     {
       "path": "packages/domain/src/workflow.ts",
-      "bytes": 7341,
-      "sha256": "e21efe6032bda76ad34ddce13219ff812bebb736a182b8400d62383f5693d956"
+      "bytes": 7532,
+      "sha256": "fe4bcd34dd889c49a7aeab361d738ba6992c71c9439aa2088518421526a50bfc"
     },
     {
       "path": "packages/domain/tsconfig.json",
@@ -1171,6 +1246,11 @@
       "path": "README.md",
       "bytes": 5121,
       "sha256": "0d9d33356a855b9bd12d0f703dada1683807a8091fd1e2118343be1e851443ec"
+    },
+    {
+      "path": "tests/geo-monitoring.integration.ts",
+      "bytes": 49155,
+      "sha256": "7cce75ae3cdd3b041c19ce8e1889e4bba7fe3c70d746fb6f509e045309b09cbd"
     },
     {
       "path": "tests/http-smoke.mjs",
