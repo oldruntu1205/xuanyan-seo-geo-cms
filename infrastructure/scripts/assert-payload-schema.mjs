@@ -63,7 +63,7 @@ if (!schemaOk || !enumOk) {
   console.error('       没有 → 就是本条，**直接重跑该 job / 该步骤即可**（实测同 commit 重跑即绿）。');
   console.error('       有 → 才去查连接串/迁移文件/步骤顺序。');
   console.error('    2) `pnpm auth:migrate` 现已被 infrastructure/scripts/ensure-payload-schema.mjs 包住');
-  console.error('       （自断言 + 命中静默空跑自动重试一次），正常情况下这条报错只会在**重试也失败**时出现。');
+  console.error('       （自断言 + 命中静默空跑自动重试，默认最多 5 次），正常情况下这条报错只会在**重试也失败**时出现。');
   console.error('    2) ⚠️ **不要**因为这句报错去改 ci.yml 的步骤顺序 —— 那是已修复的 E-8，');
   console.error('       与本条错误形状相同但根因不同（详见 docs/待验收与遗留清单.md 的 E-8 / E-10）。');
   process.exit(1);

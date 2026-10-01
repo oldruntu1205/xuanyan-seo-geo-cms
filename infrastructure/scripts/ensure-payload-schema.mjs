@@ -14,7 +14,7 @@
  * 本脚本做的事：
  *   1. 前置检查：schema 已就绪 → 直接返回（幂等，不白跑迁移）；
  *   2. 跑 `pnpm auth:migrate`（stdin 绝不给子进程；检测交互式提问；有超时兜底）；
- *   3. 断言 schema；缺失且子进程 exit 0（= E-10 静默空跑的形状）→ **原样重试一次**；
+ *   3. 断言 schema；缺失且子进程 exit 0（= E-10 静默空跑的形状）→ **原样重试**（默认最多 5 次，见下方 attempts 注释）；
  *   4. 仍缺失 → 交给 assert-payload-schema.mjs 打印标准诊断并以非 0 退出（把静默空跑变成响亮失败）。
  *
  * ⚠️ 本脚本只负责 Payload 自己的 schema；业务迁移（database/001–026）仍由 `pnpm db:migrate` 负责。
@@ -22,7 +22,7 @@
  * 用法：
  *   node infrastructure/scripts/ensure-payload-schema.mjs                 # 用 $env:DATABASE_URL
  *   node infrastructure/scripts/ensure-payload-schema.mjs --local-runtime # 用 .runtime/connection.json
- *   node infrastructure/scripts/ensure-payload-schema.mjs --attempts 1    # 关掉重试（排查时用）
+ *   node infrastructure/scripts/ensure-payload-schema.mjs --attempts 1    # 关掉重试（排查时用；默认 5 次）
  *   node infrastructure/scripts/ensure-payload-schema.mjs --force         # 跳过前置检查，强制跑一次（排查/测试用）
  *   node infrastructure/scripts/ensure-payload-schema.mjs --command "cmd /c exit 0"  # 注入假命令（测试用）
  * 退出码：0 = 已就绪；1 = 迁移失败/仍缺 schema；2 = 缺少 DATABASE_URL
@@ -42,7 +42,10 @@ const opt = (name, fallback) => {
   const i = argv.indexOf(name);
   return i === -1 ? fallback : argv[i + 1];
 };
-const attempts = Math.max(1, Number(opt('--attempts', '2')) || 2);
+// 默认重试 5 次：2026-10-01 现场实测（CI run 36832057991）第 1 次静默空跑、第 2 次成功，
+// 即单次发生率并非"偶发到可忽略"（观测到的样本里约 1/3）。每次静默空跑只花 ~2.5s，
+// 所以多试几次的代价极小；5 次全部撞上的概率约 0.4%（按各次独立估算）。
+const attempts = Math.max(1, Number(opt('--attempts', '5')) || 5);
 const timeoutMs = Math.max(1, Number(opt('--timeout-seconds', '180')) || 180) * 1000;
 const command = opt('--command', 'pnpm auth:migrate');
 
@@ -149,12 +152,12 @@ for (let attempt = 1; attempt <= attempts; attempt++) {
     console.error(`✗ 第 ${attempt} 次：auth:migrate **exit 0 却没建出 payload_internal** —— 正是 E-10 的静默空跑形状。`);
   } else {
     console.error(`✗ 第 ${attempt} 次：auth:migrate 以 exit ${result.code} 失败（非静默空跑，按上方输出排查）。`);
-    if (attempt < attempts) console.error('  仍按计划重试一次。');
+    if (attempt < attempts) console.error(`  仍会继续重试（${attempt + 1}/${attempts}）。`);
   }
 }
 
 console.error('');
-console.error(silentNoopSeen ? '✗ 重试后仍未 bootstrap 成功（E-10 静默空跑连续出现两次）。' : '✗ 重试后仍未 bootstrap 成功。');
+console.error(silentNoopSeen ? `✗ ${attempts} 次尝试全部落空（每次都 exit 0 却没建 schema，E-10 静默空跑持续复现）。` : `✗ ${attempts} 次尝试后仍未 bootstrap 成功。`);
 console.error('  交给标准断言脚本给出处置指引：');
 const assertScript = path.join(root, 'infrastructure/scripts/assert-payload-schema.mjs');
 const child = spawn(process.execPath, [assertScript], { cwd: root, env: process.env, stdio: 'inherit' });

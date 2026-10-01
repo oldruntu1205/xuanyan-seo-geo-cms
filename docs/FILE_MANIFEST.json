@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T07:44:08.527Z",
+  "generatedAt": "2026-10-01T07:47:47.574Z",
   "fileCount": 256,
   "files": [
     {
@@ -49,8 +49,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 2342,
-      "sha256": "0bb689da63a509205c9609ad005e65a81e1b24d3dc3c5820a3ad0dab1918f573"
+      "bytes": 2446,
+      "sha256": "8171bdf5700aa4b95908d50df5fdb20a7c5f0c236d770a223afc31d1f563fbc7"
     },
     {
       "path": ".gitignore",
@@ -744,8 +744,8 @@
     },
     {
       "path": "docs/待验收与遗留清单.md",
-      "bytes": 47462,
-      "sha256": "2a9e78c31449bf84716902dc9629af199aa7fc9fcbe6a50a12a5d91b3b0aced7"
+      "bytes": 48451,
+      "sha256": "9d11b16a3ddd53e962fc45c2782e977f99e78c1583c1f1d8198dd28058bcf155"
     },
     {
       "path": "docs/后台易用性改造方案.md",
@@ -929,8 +929,8 @@
     },
     {
       "path": "infrastructure/scripts/assert-payload-schema.mjs",
-      "bytes": 4087,
-      "sha256": "9ed9d1b1025838b1294dc74f127b668db88e1142bf876c92fb9037bec83eef0e"
+      "bytes": 4102,
+      "sha256": "895ac09de85fda9d5f180682359c78997bfb3e9431e88e2c8704a8b85842c2bf"
     },
     {
       "path": "infrastructure/scripts/backup-db.sh",
@@ -939,8 +939,8 @@
     },
     {
       "path": "infrastructure/scripts/ensure-payload-schema.mjs",
-      "bytes": 8350,
-      "sha256": "aba6d3a8e9e6a864ac38943bbacdfe7a296017dac78e571f66764bdb1691a6f3"
+      "bytes": 8819,
+      "sha256": "16061d36c7d6aa981c340f6308134c942f0a6a4e9b0eb3db353430f91058bef1"
     },
     {
       "path": "infrastructure/scripts/export-source.mjs",
