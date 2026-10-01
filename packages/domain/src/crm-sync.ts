@@ -26,7 +26,8 @@ export async function saveCrmSettings(actor:Actor,input:{endpoint:string;enabled
   await audit(c,actor,'integration_connections','configure',null,{provider:'generic_https_crm',endpoint,enabled:input.enabled});return {endpoint,enabled:input.enabled,configured:!!tokenCipher};});
 }
 
-export async function crmWorkspace(actor:Actor){lead(actor);const [jobs,conflicts,links]=await Promise.all([
+// 同步工作台会带出询盘编号/姓名/邮箱与 CRM 远端记录：同属**内部运维视图**，门禁用 leads.**write**（F-3 裁定 (b)，2026-10-01）。
+export async function crmWorkspace(actor:Actor){lead(actor,true);const [jobs,conflicts,links]=await Promise.all([
  query(`SELECT j.id,j.direction,j.status,j.attempt_count,j.next_attempt_at,j.error_message,j.created_at,i.inquiry_number,i.name FROM crm_sync_jobs j LEFT JOIN inquiries i ON i.id=j.inquiry_id ORDER BY j.created_at DESC LIMIT 100`),
  query(`SELECT c.id,c.inquiry_id,c.status,c.created_at,i.inquiry_number,i.name,i.email AS local_email,i.company AS local_company,i.status AS local_status,
   c.remote_record->>'name' AS remote_name,c.remote_record->>'email' AS remote_email,c.remote_record->>'company' AS remote_company,c.remote_record->>'status' AS remote_status

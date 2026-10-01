@@ -65,7 +65,9 @@ export async function publicTradeCards(locale:string,market:string){return {card
 export async function recordTradeVisit(raw:unknown){const v=z.object({id:uuid,locale:z.string().max(10),path:z.string().regex(/^\/[^?#]*$/).max(1000),source:z.string().max(200).default(''),consent:z.literal(true)}).parse(raw);await query(`INSERT INTO trade_visits(id,locale_id,path,source) SELECT $1,id,$3,$4 FROM locales WHERE code=$2 AND is_enabled ON CONFLICT(id) DO NOTHING`,[v.id,v.locale,v.path,v.source]);return {ok:true};}
 
 export const funnelSchema=z.object({from:day,to:day,source:z.string().max(200).default(''),locale:z.string().max(10).default(''),country:z.string().max(80).default(''),product:z.string().max(100).default('')});
-export async function tradeFunnel(a:Actor,raw:unknown){access(a,'leads');const v=funnelSchema.parse(raw);if(v.to<v.from||new Date(v.to).getTime()-new Date(v.from).getTime()>366*86400000)throw new DomainError('请选择一年以内的日期范围');return transaction(async c=>{await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');const rows=await query(`SELECT i.id,i.inquiry_number,i.name,i.country,coalesce(i.utm_source,'') AS source,l.code AS locale,i.visit_id,
+// 获客漏斗是**内部经营视图**（全量询盘的编号/客户姓名/国家/来源），不是客户自助视图：
+// 门禁用 leads.**write**，避免只有 leads.read 的 client 角色读到别人的询盘（F-3 裁定 (b)，2026-10-01）。
+export async function tradeFunnel(a:Actor,raw:unknown){access(a,'leads',true);const v=funnelSchema.parse(raw);if(v.to<v.from||new Date(v.to).getTime()-new Date(v.from).getTime()>366*86400000)throw new DomainError('请选择一年以内的日期范围');return transaction(async c=>{await c.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');const rows=await query(`SELECT i.id,i.inquiry_number,i.name,i.country,coalesce(i.utm_source,'') AS source,l.code AS locale,i.visit_id,
  (i.status='qualified' OR EXISTS(SELECT 1 FROM crm_history h WHERE h.inquiry_id=i.id AND (h.details->>'status'='qualified' OR h.details->>'oldStatus'='qualified'))) AS qualified,
  EXISTS(SELECT 1 FROM trade_quotes q WHERE q.inquiry_id=i.id AND q.sent_at IS NOT NULL) AS quoted,
  EXISTS(SELECT 1 FROM crm_opportunities d WHERE d.inquiry_id=i.id AND d.deleted_at IS NULL AND d.stage='won') AS won,

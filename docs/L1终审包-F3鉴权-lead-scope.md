@@ -131,3 +131,47 @@ node .runtime/probe-f3-funnel-leak.mjs           # ★ 本包：17 个站点的�
 **部署它 = 对外宣称"已经修好了"，实际没有。** 建议：先裁定 §9，补完两处，**再和 G53 一起部署**。
 
 > **别误读成"部署会更糟"**：prod 现状是**这 8 个入口全部泄露**（本 diff 未上线）；上了本 diff 会变成 2 个，属**净改善**。它只是达不到"已修复"的可宣称标准 —— 而我们要的是一次到位，不是分两次上生产。
+
+---
+
+## 11. 裁定与落地（2026-10-01，用户裁定 **选 (b)**）
+
+**裁定**：不走"补归属过滤"，而是把这两个入口定性为**内部经营 / 运维视图**，门槛从 `leads.read` 提到 **`leads.write`** —— `client` 直接 403。
+
+**改动（2 处门禁 + 2 条说明注释，`5 insertions / 2 deletions`）**
+
+| 文件 | 改动 |
+| --- | --- |
+| [`trade-operations.ts:68`](../packages/domain/src/trade-operations.ts#L68) | `tradeFunnel`：`access(a,'leads')` → **`access(a,'leads',true)`** |
+| [`crm-sync.ts:29`](../packages/domain/src/crm-sync.ts#L29) | `crmWorkspace`：`lead(actor)` → **`lead(actor,true)`** |
+
+**影响面（为什么只有 client 受影响）**
+
+| 角色 | 有 `leads.read` | 有 `leads.write` | 改前 | 改后 |
+| --- | --- | --- | --- | --- |
+| `client` | ✅ | ❌ | 200（能读全部询盘） | **403** |
+| `editor` / `seo_manager` / `translator` / `reviewer` | ❌（无 leads 模块权限） | ❌ | 403 | 403（不变） |
+| `admin` / `super_admin` | ✅ | ✅ | 200 | 200（不变，无回归） |
+
+> `crm-sync.ts` 内另两处 `lead(actor,true)`（`queueCrmSync` / `retryCrmJob`）本就是写门，`resolveCrmConflict` 是 `admin` 门 —— **本次未触碰**。
+
+**实测（本地栈，命令级）**
+
+```text
+node .runtime/probe-f3-funnel-leak.mjs    → 14/14 PASS
+  PASS B  trade/funnel 对 client 返回 403 — HTTP 403 没有此功能的操作权限
+  PASS B  ★ 403 响应体不含任何询盘数据 — 行数=0
+  PASS B2 v2/v21-crm 对 client 返回 403 — HTTP 403 没有客户跟进权限
+  PASS B2 ★ 403 响应体不含询盘/CRM 远端数据 — 未泄露
+  （B2 的夹具已按"空库绿灯是空测"的教训先造出引用陌生询盘的任务/关联/冲突）
+  PASS A  已被 51dacd5 修补的 6 个读入口全部仍正确（无回归）
+  PASS D  admin 的 trade/funnel 正常且能看到全部
+```
+
+```text
+pnpm -r typecheck                → exit 0（6/6）
+pnpm test                        → exit 0（17/17）
+verify.mjs --local-runtime       → exit 0（GEO 99/99 + integration + 全量回滚 → 重迁移 → no-op）
+```
+
+**所以**：本 diff 的 8 个泄露入口现已**全部关闭**（6 个由 `51dacd5` 补过滤，2 个由本次提门槛），可以随 `G53` 一起上生产。
