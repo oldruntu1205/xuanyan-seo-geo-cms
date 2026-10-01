@@ -2,6 +2,7 @@ import {z} from 'zod';
 import {query,transaction} from './db';
 import {audit,DomainError} from './crud';
 import {canRead,canWrite,getResource} from './registry';
+import {inquiryScope} from './lead-scope';
 import {sourceDocument} from './documents';
 import {seoReview} from './seo-review';
 import {activeLLMConfig,callLLMChat} from './llm';
@@ -11,8 +12,8 @@ function leadAccess(actor:Actor,write=false){const r=getResource('inquiries');if
 export async function inquiryWorkspace(actor:Actor,id?:string){
  leadAccess(actor);
  const users=await query("SELECT id,display_name,email FROM users WHERE status='active' AND deleted_at IS NULL ORDER BY display_name LIMIT 100");
- if(id){const inquiry=(await query('SELECT * FROM inquiries WHERE id=$1 AND deleted_at IS NULL',[id]))[0];if(!inquiry)throw new DomainError('询盘不存在',404);const notes=await query(`SELECT n.id,n.note,n.created_at,u.display_name AS author FROM inquiry_notes n LEFT JOIN users u ON u.id=n.created_by WHERE n.inquiry_id=$1 ORDER BY n.created_at DESC LIMIT 100`,[id]);const items=await query('SELECT product_name_snapshot,sku_snapshot,quantity,unit,notes FROM inquiry_items WHERE inquiry_id=$1 ORDER BY id',[id]);const attachments=await query('SELECT id,original_filename,mime_type,file_size FROM inquiry_attachments WHERE inquiry_id=$1 ORDER BY created_at',[id]);return {inquiry,notes,items,attachments,users};}
- const inquiries=await query(`SELECT i.id,i.inquiry_number,i.name,i.company,i.email,i.status,i.message,i.source_url,i.utm_source,i.created_at,i.next_follow_up_at,u.display_name AS assignee FROM inquiries i LEFT JOIN users u ON u.id=i.assigned_to WHERE i.deleted_at IS NULL ORDER BY CASE WHEN i.next_follow_up_at IS NOT NULL AND i.next_follow_up_at<now() AND i.status NOT IN ('closed','spam') THEN 0 ELSE 1 END,i.created_at DESC LIMIT 100`);
+ if(id){const p:unknown[]=[id];const scope=inquiryScope(actor,'inquiries',p);const inquiry=(await query(`SELECT * FROM inquiries WHERE id=$1 AND deleted_at IS NULL${scope}`,p))[0];if(!inquiry)throw new DomainError('询盘不存在',404);const notes=await query(`SELECT n.id,n.note,n.created_at,u.display_name AS author FROM inquiry_notes n LEFT JOIN users u ON u.id=n.created_by WHERE n.inquiry_id=$1 ORDER BY n.created_at DESC LIMIT 100`,[id]);const items=await query('SELECT product_name_snapshot,sku_snapshot,quantity,unit,notes FROM inquiry_items WHERE inquiry_id=$1 ORDER BY id',[id]);const attachments=await query('SELECT id,original_filename,mime_type,file_size FROM inquiry_attachments WHERE inquiry_id=$1 ORDER BY created_at',[id]);return {inquiry,notes,items,attachments,users};}
+ const lp:unknown[]=[];const lscope=inquiryScope(actor,'i',lp);const inquiries=await query(`SELECT i.id,i.inquiry_number,i.name,i.company,i.email,i.status,i.message,i.source_url,i.utm_source,i.created_at,i.next_follow_up_at,u.display_name AS assignee FROM inquiries i LEFT JOIN users u ON u.id=i.assigned_to WHERE i.deleted_at IS NULL${lscope} ORDER BY CASE WHEN i.next_follow_up_at IS NOT NULL AND i.next_follow_up_at<now() AND i.status NOT IN ('closed','spam') THEN 0 ELSE 1 END,i.created_at DESC LIMIT 100`,lp);
  return {inquiries,users};
 }
 export async function updateInquiry(actor:Actor,input:{id:string;status:string;assignedTo?:string|null;nextFollowUpAt?:string|null;note?:string}){

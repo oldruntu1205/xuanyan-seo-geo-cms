@@ -1,6 +1,7 @@
 import {query,transaction} from './db';
 import {audit,DomainError} from './crud';
 import {canRead,canWrite,getResource} from './registry';
+import {inquiryScope,asJoinCondition} from './lead-scope';
 import type {Actor,Row} from './types';
 
 const stages=['new','qualified','proposal','negotiation','won','lost'] as const;
@@ -31,16 +32,16 @@ export async function crmOverview(actor:Actor,search='',stage='',page=1){access(
 export async function crmOptions(actor:Actor,kind:'accounts'|'contacts'|'inquiries',search=''){access(actor);const term='%'+search.trim().slice(0,100)+'%';
  if(kind==='accounts')return {rows:await query(`SELECT id,name,country FROM crm_accounts WHERE status='active' AND (name ILIKE $1 OR country ILIKE $1) ORDER BY updated_at DESC LIMIT 50`,[term])};
  if(kind==='contacts')return {rows:await query(`SELECT id,name,email FROM crm_contacts WHERE status='active' AND (name ILIKE $1 OR email::text ILIKE $1) ORDER BY updated_at DESC LIMIT 50`,[term])};
- return {rows:await query(`SELECT id,inquiry_number,name,email,crm_account_id,crm_contact_id FROM inquiries WHERE deleted_at IS NULL AND (name ILIKE $1 OR email::text ILIKE $1 OR inquiry_number ILIKE $1) ORDER BY created_at DESC LIMIT 50`,[term])};}
+ {const p:unknown[]=[term];const s=inquiryScope(actor,'inquiries',p);return {rows:await query(`SELECT id,inquiry_number,name,email,crm_account_id,crm_contact_id FROM inquiries WHERE deleted_at IS NULL AND (name ILIKE $1 OR email::text ILIKE $1 OR inquiry_number ILIKE $1)${s} ORDER BY created_at DESC LIMIT 50`,p)};}}
 
 export async function crmCustomers(actor:Actor,kind:'accounts'|'contacts',search='',page=1){access(actor);const n=pageNumber(page),term='%'+search.trim().slice(0,100)+'%';
  if(kind==='accounts'){const [rows,total]=await Promise.all([query(`SELECT a.id,a.name,a.country,a.status,a.owner_id,a.created_at,count(DISTINCT ac.contact_id)::int AS contacts,count(DISTINCT d.id)::int AS deals FROM crm_accounts a LEFT JOIN crm_account_contacts ac ON ac.account_id=a.id LEFT JOIN crm_opportunities d ON d.account_id=a.id AND d.deleted_at IS NULL WHERE a.name ILIKE $1 OR a.country ILIKE $1 GROUP BY a.id ORDER BY a.updated_at DESC LIMIT 30 OFFSET $2`,[term,(n-1)*30]),query(`SELECT count(*)::int AS count FROM crm_accounts WHERE name ILIKE $1 OR country ILIKE $1`,[term])]);return {rows,total:total[0]?.count||0,page:n};}
- const [rows,total]=await Promise.all([query(`SELECT c.id,c.name,c.email,c.phone,c.title,c.status,c.created_at,count(DISTINCT i.id)::int AS inquiries,count(DISTINCT d.id)::int AS deals FROM crm_contacts c LEFT JOIN inquiries i ON i.crm_contact_id=c.id AND i.deleted_at IS NULL LEFT JOIN crm_opportunities d ON d.contact_id=c.id AND d.deleted_at IS NULL WHERE c.name ILIKE $1 OR c.email::text ILIKE $1 GROUP BY c.id ORDER BY c.updated_at DESC LIMIT 30 OFFSET $2`,[term,(n-1)*30]),query(`SELECT count(*)::int AS count FROM crm_contacts WHERE name ILIKE $1 OR email::text ILIKE $1`,[term])]);return {rows,total:total[0]?.count||0,page:n};}
+ const pC:unknown[]=[term,(n-1)*30];const sC=asJoinCondition(inquiryScope(actor,'i',pC));const [rows,total]=await Promise.all([query(`SELECT c.id,c.name,c.email,c.phone,c.title,c.status,c.created_at,count(DISTINCT i.id)::int AS inquiries,count(DISTINCT d.id)::int AS deals FROM crm_contacts c LEFT JOIN inquiries i ON i.crm_contact_id=c.id AND i.deleted_at IS NULL${sC} LEFT JOIN crm_opportunities d ON d.contact_id=c.id AND d.deleted_at IS NULL WHERE c.name ILIKE $1 OR c.email::text ILIKE $1 GROUP BY c.id ORDER BY c.updated_at DESC LIMIT 30 OFFSET $2`,pC),query(`SELECT count(*)::int AS count FROM crm_contacts WHERE name ILIKE $1 OR email::text ILIKE $1`,[term])]);return {rows,total:total[0]?.count||0,page:n};}
 
 export async function crmCustomer(actor:Actor,kind:'account'|'contact',id:string,page=1){access(actor);const n=pageNumber(page),account=kind==='account',table=account?'crm_accounts':'crm_contacts';const record=(await query(`SELECT * FROM ${table} WHERE id=$1`,[id]))[0];if(!record)throw new DomainError('客户不存在',404);
- const key=account?'account_id':'contact_id';const [contacts,inquiries,deals,events,total]=await Promise.all([
+ const key=account?'account_id':'contact_id';const pInq:unknown[]=[id];const sInq=inquiryScope(actor,'inquiries',pInq);const [contacts,inquiries,deals,events,total]=await Promise.all([
   account?query(`SELECT c.id,c.name,c.email,c.phone FROM crm_account_contacts ac JOIN crm_contacts c ON c.id=ac.contact_id WHERE ac.account_id=$1 ORDER BY c.name LIMIT 100`,[id]):query(`SELECT a.id,a.name,a.country FROM crm_account_contacts ac JOIN crm_accounts a ON a.id=ac.account_id WHERE ac.contact_id=$1 ORDER BY a.name LIMIT 100`,[id]),
-  query(`SELECT id,inquiry_number,name,email,status,message,source_url,created_at FROM inquiries WHERE crm_${key}=$1 AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50`,[id]),
+  query(`SELECT id,inquiry_number,name,email,status,message,source_url,created_at FROM inquiries WHERE crm_${key}=$1 AND deleted_at IS NULL${sInq} ORDER BY created_at DESC LIMIT 50`,pInq),
   query(`${dealSelect} WHERE d.${key}=$1 AND d.deleted_at IS NULL ORDER BY d.updated_at DESC LIMIT 50`,[id]),
   query(`SELECT h.id,h.event_type,h.summary,h.details,h.created_at,u.display_name AS actor FROM crm_history h LEFT JOIN users u ON u.id=h.actor_id WHERE h.${key}=$1 ORDER BY h.created_at DESC,h.id DESC LIMIT 50 OFFSET $2`,[id,(n-1)*50]),
   query(`SELECT count(*)::int AS count FROM crm_history WHERE ${key}=$1`,[id])

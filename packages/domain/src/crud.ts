@@ -1,5 +1,6 @@
 import { query, transaction, identifier as q } from './db';
 import { resources, getResource, canRead, canWrite } from './registry';
+import { leadTableScope } from './lead-scope';
 import type { Actor, Row } from './types';
 import type { PoolClient } from 'pg';
 export class DomainError extends Error { constructor(message:string,public status=400){super(message);} }
@@ -23,6 +24,8 @@ export async function list(actor:Actor,table:string,options:{page?:number;limit?
  if(['audit_logs','content_revisions'].includes(table)&&!['admin','super_admin'].includes(actor.role)){params.push(resources.filter(r=>canRead(actor,r)&&!['history','system','leads'].includes(r.group)).map(r=>r.table));where.push(`entity_type=ANY(${params.length}::text[])`);}
  for(const [k,v] of Object.entries(options.filter??{})){if(!names.includes(k))throw new DomainError('Invalid filter');params.push(v);where.push(`${q(k)}=$${params.length}`);}
  if(options.search){const textCols=cols.filter(c=>['text','character varying','USER-DEFINED'].includes(c.type)&&!['id'].includes(c.name)&&!c.name.endsWith('_id')).map(c=>q(c.name)+'::text');if(textCols.length){params.push('%'+options.search.slice(0,200)+'%');where.push(`concat_ws(' ',${textCols.join(',')}) ILIKE $${params.length}`);}}
+ // leads 组（询盘/明细/下载记录）：client 只看自己的（邮箱匹配或指派给他），其余角色不受限
+ if(r.group==='leads'){const scope=leadTableScope(actor,table,params).replace(/^\s*AND\s+/,'');if(scope)where.push(scope);}
  const predicate=where.length?' WHERE '+where.join(' AND '):'';const count=await query(`SELECT count(*)::int AS count FROM ${q(table)}${predicate}`,params);
  const limit=Math.min(100,Math.max(1,options.limit||25)),page=Math.max(1,options.page||1);
  const rows=await query(`SELECT ${names.map(q).join(',')} FROM ${q(table)}${predicate} ORDER BY ${q(names.includes('updated_at')?'updated_at':names.includes('created_at')?'created_at':r.key![0])} DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,(page-1)*limit]);

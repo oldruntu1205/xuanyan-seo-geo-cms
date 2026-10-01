@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {query,transaction} from './db';
 import {audit,DomainError} from './crud';
 import {canRead,canWrite,getResource} from './registry';
+import {inquiryScope} from './lead-scope';
 import type {Actor,Row} from './types';
 
 const uuid=z.string().uuid();
@@ -16,13 +17,13 @@ const dateString=(v:any)=>v instanceof Date?v.toISOString().slice(0,10):String(v
 async function inquiry(c:any,id:string){const row=(await c.query('SELECT * FROM inquiries WHERE id=$1 AND deleted_at IS NULL FOR UPDATE',[id])).rows[0];if(!row)throw new DomainError('询盘不存在',404);return row;}
 async function event(c:any,i:Row,a:Actor|null,summary:string,details:Row={}){await c.query(`INSERT INTO crm_history(account_id,contact_id,inquiry_id,event_type,summary,details,actor_id) VALUES($1,$2,$3,'trade_operation',$4,$5::jsonb,$6)`,[i.crm_account_id,i.crm_contact_id,i.id,summary,JSON.stringify(details),a?.id||null]);}
 
-export async function tradeWorkspace(a:Actor,q='',page=1){access(a,'leads');const term='%'+q.trim().slice(0,100)+'%';const [inquiries,total,locales,rules]=await Promise.all([
+export async function tradeWorkspace(a:Actor,q='',page=1){access(a,'leads');const term='%'+q.trim().slice(0,100)+'%';const pList:unknown[]=[term,(page-1)*50];const sList=inquiryScope(a,'i',pList);const pTotal:unknown[]=[term];const sTotal=inquiryScope(a,'i',pTotal);const [inquiries,total,locales,rules]=await Promise.all([
  query(`SELECT i.id,i.inquiry_number,i.name,i.company,i.country,i.status,i.created_at,i.response_due_at,i.first_response_at,l.native_name AS language,
  (SELECT count(*)::int FROM trade_quotes WHERE inquiry_id=i.id) AS quotes FROM inquiries i LEFT JOIN locales l ON l.id=i.locale_id
- WHERE i.deleted_at IS NULL AND (i.inquiry_number ILIKE $1 OR i.name ILIKE $1 OR i.company ILIKE $1) ORDER BY i.created_at DESC LIMIT 50 OFFSET $2`,[term,(page-1)*50]),
- query(`SELECT count(*)::int AS n FROM inquiries i WHERE i.deleted_at IS NULL AND (i.inquiry_number ILIKE $1 OR i.name ILIKE $1 OR i.company ILIKE $1)`,[term]),
+ WHERE i.deleted_at IS NULL AND (i.inquiry_number ILIKE $1 OR i.name ILIKE $1 OR i.company ILIKE $1)${sList} ORDER BY i.created_at DESC LIMIT 50 OFFSET $2`,pList),
+ query(`SELECT count(*)::int AS n FROM inquiries i WHERE i.deleted_at IS NULL AND (i.inquiry_number ILIKE $1 OR i.name ILIKE $1 OR i.company ILIKE $1)${sTotal}`,pTotal),
  query('SELECT id,code,native_name FROM locales WHERE is_enabled ORDER BY code'),query('SELECT r.*,l.native_name AS language FROM trade_service_rules r JOIN locales l ON l.id=r.locale_id ORDER BY l.code,r.country')]);return {inquiries,total:total[0].n,locales,rules};}
-export async function tradeInquiry(a:Actor,id:string){access(a,'leads');const i=(await query(`SELECT id,inquiry_number,name,email,company,country,status,message,first_response_at,response_due_at FROM inquiries WHERE id=$1 AND deleted_at IS NULL`,[id]))[0];if(!i)throw new DomainError('询盘不存在',404);
+export async function tradeInquiry(a:Actor,id:string){access(a,'leads');const p:unknown[]=[id];const s=inquiryScope(a,'inquiries',p);const i=(await query(`SELECT id,inquiry_number,name,email,company,country,status,message,first_response_at,response_due_at FROM inquiries WHERE id=$1 AND deleted_at IS NULL${s}`,p))[0];if(!i)throw new DomainError('询盘不存在',404);
  const [items,quotes,events,grants,deals]=await Promise.all([query('SELECT id,product_name_snapshot,sku_snapshot,quantity,unit FROM inquiry_items WHERE inquiry_id=$1 ORDER BY id',[id]),query('SELECT q.*,q.valid_until::text AS valid_until,u.display_name AS author FROM trade_quotes q JOIN users u ON u.id=q.created_by WHERE q.inquiry_id=$1 ORDER BY version DESC',[id]),query(`SELECT e.*,u.display_name AS actor FROM trade_quote_events e JOIN trade_quotes q ON q.id=e.quote_id LEFT JOIN users u ON u.id=e.actor_id WHERE q.inquiry_id=$1 ORDER BY e.created_at DESC LIMIT 100`,[id]),query('SELECT id,recipient,role,expires_at,revoked_at,created_at FROM trade_portal_grants WHERE inquiry_id=$1 ORDER BY created_at DESC LIMIT 100',[id]),query('SELECT id,title,stage FROM crm_opportunities WHERE inquiry_id=$1 AND deleted_at IS NULL ORDER BY created_at DESC',[id])]);return {inquiry:i,items,quotes,events,grants,deals};}
 
 export const quoteSchema=z.object({inquiryId:uuid,opportunityId:uuid.nullable().optional(),currency:z.string().regex(/^[A-Z]{3}$/),incoterm:z.enum(['EXW','FCA','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']),validUntil:day,terms:z.string().max(5000),lines:z.array(z.object({itemId:uuid,quantity:z.number().positive().max(1e9).multipleOf(0.001),unitPrice:z.number().min(0).max(1e9).multipleOf(0.01)})).min(1).max(50)});
