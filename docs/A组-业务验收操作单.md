@@ -228,7 +228,36 @@ ssh root@43.132.209.126 'PROD_CONFIRM=1 node /root/verify-a-prod-trade.mjs'   # 
 
 **回滚**：`DELETE FROM geo_model_profiles WHERE code='deepseek-flash';`（只删这一行，不影响其他配置；删除前建议先确认没有启用中的 target 引用它）。
 
-**现在 A-6(a) 只剩 3 步（其中 2 步是你的决定）**：
-1. **建固定问题**（增长研究 → GEO 监测）—— 需要你定"监测哪个问题 + **品牌名**"，这是业务内容，我不代拟；
-2. **启用预算**（GEO 监测中心；当前日 5 / 月 50，`is_enabled=false`）—— ⚠️ 开了就真花钱；
-3. **建采样目标**（选刚建好的 `deepseek-flash` 模型 + `local` 地区 + 上面的固定问题）。
+**A-6(a) 剩余步骤**：见 §7.2。
+
+### 7.2 ✅ 选项 A 已落地：验收用固定问题 + 停用态采样目标（2026-10-01，经用户授权）
+
+**为什么不代你定品牌也要能推进**：`geo_prompts` 是**每个部署方自己在后台填**的行（写入路径 `growth.ts:141 saveGeoPrompt`，门禁 `seo.write`；能建的角色 = `super_admin`/`admin`/`seo_manager`）。产品层面「空表」就是新部署的正确出厂态，全仓 `database/*.sql` **没有一条 `INSERT INTO geo_prompts`**。所以这里建的是**验收数据**（可改可删），不是产品预置。
+
+| 对象 | 值 | id |
+| --- | --- | --- |
+| 固定问题 | 语言 `zh` / 市场 `CN` / 品牌 **`SUNS`** / 问题 = 后台 UI 自带的示例「适合实验室采购的耐热玻璃容器有哪些选择？」/ 已启用 | `40c1ad3b-3271-4e01-8633-60f1092b0050` |
+| 采样目标 | 模型 `deepseek-flash` + 地区 `local` + 周期 1440 分钟 + **`is_enabled=false`** | `61895244-a3ab-4d73-ad49-d9bc5a486f2b` |
+
+选值依据：`SUNS` 是后台表单 `brandName` 的初值（`GeoMonitorDesk.tsx:19`），也与本站出厂 `site_settings.site_name='SUNS Glassware'` 一致；`market` 会以 `marketLabel` 进 user message（`geo-monitoring.ts:92`），中文问题配 `CN` 才诚实。
+
+**⚠️ 目标为什么建成"停用"态（这条不搞清会让你白等一天）**
+
+`scheduleDueGeoTargets` 在**建 job 的同时**就把 `next_run_at` 推后一整个周期，而且**不检查预算是否启用**（`geo-monitoring.ts:72`）。所以若目标建成启用态：分钟级内就会建一条 job、`next_run_at` 被推到 **+1 天**，随后该 job 被 `blocked_budget` 挡掉失败 → 你之后启用预算时**已经不到点了，要等一天**。停用态则不参与调度，等你要跑时再启用（启用会把 `next_run_at` 置为 `now()`）。
+
+**你必须按这个顺序做（都在「GEO 监测中心」页）**
+
+1. **先启用预算**（钱闸门。开之前永远不可能产生费用）；
+2. **再启用这条采样目标**。
+
+> ⚠️ **顺序反了怎么办**：会立刻产生一条 `blocked_budget` 失败任务，并把该目标推到 +1 天。补救很简单 —— 把该目标**先停用再启用一次**（`saveGeoTarget` 的重置分支会再把 `next_run_at` 置为 `now()`）。
+
+**跑通的时间与成本**：prod 的 `suns-worker` 里 `dispatchGeo` 每 **30s** 调度、`dispatchGeoSample` 每 **4s** 认领并调模型（`apps/worker/src/index.ts:25,28`）→ **启用目标后 ≤1 分钟出样本**。成本 ≈ **$0.0026/次**（4000 in × $0.30/1e6 + ≤1200 out × $1.20/1e6，峰值上限估；非峰值减半）；周期 1440 分钟 = 最多 1 次/天。
+
+**零成本证据**（prod 上 `.runtime/prod-geo-prompt-target-prep.mjs`，**11/11 PASS**）：预算仍 `is_enabled=false`；`jobs 0→0  samples 0→0  reserved 0→0`；GEO worker 心跳 6s 前。
+
+**回滚**（顺序：先删目标再删问题）：
+```sql
+DELETE FROM geo_monitor_targets WHERE id='61895244-a3ab-4d73-ad49-d9bc5a486f2b';
+DELETE FROM geo_prompts        WHERE id='40c1ad3b-3271-4e01-8633-60f1092b0050';
+```
