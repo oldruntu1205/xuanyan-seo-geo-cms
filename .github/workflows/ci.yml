@@ -32,12 +32,13 @@ jobs:
       # 启动的时长（实测 ~3.9s，不是历史记录的 0.3s）却一个字都不打印、没建出 payload_internal，
       # 然后 exit 0；紧随其后的 db:migrate 就在 **025** 上报 `schema "payload_internal" does not exist`。
       # ⚠️ 这个错误形状与已修复的 **E-8**（步骤顺序写错）一样，但根因不同 —— **不要**再去改步骤顺序。
-      # 现在由 ensure-payload-schema.mjs 承担该步骤：先自断言 schema，命中「exit 0 却没建 schema」
-      # 的静默空跑时**原样重试**（默认最多 5 次；实测单次发生率约 10~20%，run 36832057991 第 1 次
-      # 空跑、第 2 次成功），重试仍失败才交给 assert-payload-schema.mjs 响亮报错。
+      # 现在这道护栏已收进 **`pnpm auth:migrate` 本身**（package.json → ensure-payload-schema.mjs）：
+      # 先自断言 schema，命中「exit 0 却没建 schema」的静默空跑时**原样重试**（默认最多 5 次；实测单次
+      # 发生率约 10~20%，run 36832057991 第 1 次空跑、第 2 次成功），重试仍失败才交给
+      # assert-payload-schema.mjs 响亮报错。verify.mjs 与 CI 因此共用同一道护栏。
       # 机制已被 CI 探针定案：**加载器 worker 侧事件循环排空**（`void start()` 非顶层 await → exit 0）。
       # 别再走"加保活"路线 —— 实测那会把它变成永久挂起（详见 docs/待验收与遗留清单.md 的 E-10）。
-      - run: node infrastructure/scripts/ensure-payload-schema.mjs
+      - run: pnpm auth:migrate
         env: {NODE_ENV: production}
       - run: pnpm db:migrate
       - run: pnpm typecheck

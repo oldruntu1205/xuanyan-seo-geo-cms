@@ -13,7 +13,8 @@
     "db:rollback": "node infrastructure/scripts/migrate.mjs down",
     "setup": "node infrastructure/scripts/setup.mjs",
     "dev:worker": "pnpm --filter @suns/worker start",
-    "auth:migrate": "pnpm --filter @suns/cms exec payload migrate",
+    "payload:migrate": "pnpm --filter @suns/cms exec payload migrate",
+    "auth:migrate": "node infrastructure/scripts/ensure-payload-schema.mjs --command \"pnpm payload:migrate\"",
     "test": "pnpm exec tsx --test tests/*.test.ts"
   },
   "devDependencies": {

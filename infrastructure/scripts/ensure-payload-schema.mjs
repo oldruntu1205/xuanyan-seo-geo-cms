@@ -19,6 +19,11 @@
  *
  * ⚠️ 本脚本只负责 Payload 自己的 schema；业务迁移（database/001–026）仍由 `pnpm db:migrate` 负责。
  *
+ * 📌 2026-10-02 起的**唯一入口**：`pnpm auth:migrate` 现在**就是本脚本**（package.json 的 scripts），
+ *    裸迁移命令改名为 `pnpm payload:migrate`。这样 verify.mjs / CI / 本机开发三条路径**共用同一道护栏**，
+ *    而不是只有 CI 那一步受保护（原先 verify.mjs 里是裸 `pnpm auth:migrate`，只靠它自己的 bootstrap 断言兜底）。
+ *    `--command` 传了含 auth:migrate 的值会被拒绝（exit 3），避免自我递归。
+ *
  * 用法：
  *   node infrastructure/scripts/ensure-payload-schema.mjs                 # 用 $env:DATABASE_URL
  *   node infrastructure/scripts/ensure-payload-schema.mjs --local-runtime # 用 .runtime/connection.json
@@ -48,7 +53,15 @@ const opt = (name, fallback) => {
 // 残余概率约 10⁻⁴~10⁻³（按各次独立估算）。
 const attempts = Math.max(1, Number(opt('--attempts', '5')) || 5);
 const timeoutMs = Math.max(1, Number(opt('--timeout-seconds', '180')) || 180) * 1000;
-const command = opt('--command', 'pnpm auth:migrate');
+const command = opt('--command', 'pnpm payload:migrate');
+// 自递归护栏（2026-10-02）：本脚本现在**就是** `pnpm auth:migrate`（见 package.json 的 scripts），
+// 所以默认命令必须是裸的 `pnpm payload:migrate`；若有人把 auth:migrate 再塞进 --command，
+// 就会变成「自己 spawn 自己」的无限递归 —— 直接拒绝，而不是等它把机器打满。
+if (/auth:migrate/.test(command)) {
+  console.error(`✗ --command 不能包含 auth:migrate（本脚本就是 auth:migrate，会自我递归）。收到：${command}`);
+  console.error('  裸迁移命令请用：pnpm payload:migrate');
+  process.exit(3);
+}
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
