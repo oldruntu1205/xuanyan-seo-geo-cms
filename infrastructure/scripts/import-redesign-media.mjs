@@ -8,9 +8,17 @@
 //   node infrastructure/scripts/import-redesign-media.mjs                      # 推导映射 + 对照公网 sitemap 校验
 //   node infrastructure/scripts/import-redesign-media.mjs --apply              # 真正上传 + 挂图 + 设 featured_media_id
 //   node infrastructure/scripts/import-redesign-media.mjs --apply --publish    # 追加：逐个产品重新发布 + 站级重建
+//   node infrastructure/scripts/import-redesign-media.mjs --apply --only latex-rubber-gloves   # 只做一条（金丝雀）
 //   --source <dir>   重设计目录（默认 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign）
 //   --cms-base <url> CMS 基址（默认 env CMS_BASE 或 http://localhost:3001）
 //   --live <sitemap-url> 对照用的公网产品 sitemap（默认 https://www.opctools.cloud/sitemap-en-products-1.xml）
+//
+// 打生产（推荐做法：脚本留在开发机跑，CMS 经 SSH 隧道暴露到本地）：
+//   ssh -N -L 3001:127.0.0.1:3001 root@43.132.209.126        # 另开一个窗口
+//   $env:CMS_BASE='http://127.0.0.1:3001'; node infrastructure/scripts/import-redesign-media.mjs            # 先 dry-run
+//   node infrastructure/scripts/import-redesign-media.mjs --apply --only latex-rubber-gloves                # 金丝雀一条
+//   node infrastructure/scripts/import-redesign-media.mjs --apply --publish                                 # 全量 + 重发
+// 之所以不在 prod 机器上跑：图片与模板在开发机（H:/Workbuddy/...），且 prod 只有 1.96 GB 内存。
 //
 // 前置（仅 --apply 需要）：管理员凭据在 .runtime/demo-admin.txt，或用 CMS_EMAIL / CMS_PASSWORD 环境变量。
 //
@@ -26,6 +34,7 @@
 // 边界（不要越界）：不做图片裁切/调色（素材已由设计侧处理完）；不做产品文案改编；不碰其它产品的图片。
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 const value = (name, fallback) => { const i = args.indexOf('--' + name); if (i < 0) return fallback; const v = args[i + 1]; return v && !v.startsWith('--') ? v : fallback; };
@@ -34,9 +43,12 @@ const source = value('source', 'H:/Workbuddy/2026-10-02-18-17-59/opctools-redesi
 const base = (process.env.CMS_BASE || value('cms-base', 'http://localhost:3001')).replace(/\/$/, '');
 const origin = base;
 const liveSitemap = value('live', 'https://www.opctools.cloud/sitemap-en-products-1.xml');
+const only = value('only', '');
 const apply = has('apply');
 const publish = has('publish');
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '../..');
+// fileURLToPath 而不是手撕 url.pathname：Windows 的 /H:/… 与 Linux 的 /www/… 都能正确还原，
+// 且会做百分号解码（路径含空格或中文时手撕的写法会静默出错）。
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const credentialFile = path.join(root, '.runtime/demo-admin.txt');
 
 // ── 1. 从设计稿推导映射：products 列表页的卡片 = 产品主图，唯一权威来源 ──────────────
@@ -100,8 +112,10 @@ async function main() {
   console.log('公网 sitemap：' + (live.ok ? live.set.size + ' 个产品' : '取不到（' + live.reason + '），跳过对照'));
   const missing = [...cards.keys()].filter((slug) => live.ok && !live.set.has(slug));
   if (missing.length) console.log('⚠ 线上找不到的 slug（' + missing.length + '）：' + missing.join(', '));
-  const uploadable = [...cards.values()].filter((x) => x.dir === 'clean');
-  console.log('待上传图片：' + uploadable.length + ' 张（clean/ 900² 统一画布；clean-tight/ 是给 hero 用的保比例版，产品主图不用）');
+  const uploadableAll = [...cards.values()].filter((x) => x.dir === 'clean');
+  const uploadable = only ? uploadableAll.filter((x) => x.slug === only) : uploadableAll;
+  if (only && !uploadable.length) throw new Error('--only 指定的 slug 不在设计稿里：' + only);
+  console.log('待上传图片：' + uploadable.length + ' 张（clean/ 900² 统一画布；clean-tight/ 是给 hero 用的保比例版，产品主图不用）' + (only ? '［--only 金丝雀模式］' : ''));
   for (const item of uploadable) console.log('  ' + item.slug.padEnd(72) + ' <- ' + item.img + '  ' + Math.round(item.bytes / 1024) + ' KB');
   if (!apply) { console.log('\n[dry-run] 未写任何数据。确认无误后加 --apply 执行。'); return; }
 
@@ -122,8 +136,11 @@ async function main() {
       media = JSON.parse(text); uploaded++;
       console.log('upload  ' + filename + ' -> ' + String(media.id).slice(0, 8) + ' ' + media.width + 'x' + media.height);
       // alt 只写英文：设计稿的 alt 是英文；其它语言由运营在后台补，前台在缺失时回退到产品标题（见 packages/ui/src/index.ts 的 image()）。
+      // 注意：locales 属于 'system' 组，**只有 admin/super_admin 读得到**（registry.ts 的 canRead）；
+      // 用编辑类账号跑本脚本时，这一步会查不到 en 语言 —— 下面显式告警，不静默跳过。
       const en = (await call(recordQuery('locales', { code: 'en' }, '&limit=1'))).rows[0];
-      if (en && item.alt) await call('/api/v1/records?resource=media_asset_translations', { method: 'POST', body: { data: { media_id: media.id, locale_id: en.id, alt_text: item.alt } } });
+      if (!en) console.log('  ⚠ 读不到 en 语言（locales 属 system 组，需 admin 账号）→ 英文 alt 未写入，图仍可用');
+      else if (item.alt) await call('/api/v1/records?resource=media_asset_translations', { method: 'POST', body: { data: { media_id: media.id, locale_id: en.id, alt_text: item.alt } } });
     }
     const translations = (await call(recordQuery('product_translations', { slug: item.slug }))).rows;
     if (!translations.length) { console.log('  ⚠ 库里没有 slug=' + item.slug + ' 的产品，跳过挂图'); continue; }

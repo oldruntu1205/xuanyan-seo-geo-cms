@@ -93,6 +93,9 @@
 | 钩子完备性 | `.runtime/check-hooks.mjs` | 90 页 / **204 条蕴含规则全过**；每页 `<h1>` 恰 1 个；90/90 页引用 `/assets/site.css`+`site.js` |
 | 视觉比对 | 无头 Chrome 1440 / 500 两种宽度截图（`.runtime/shots/`） | 首页（含 hero / 凭据条 / 产品区 / 流程 / 市场块 / 页脚）、产品详情、分类页、联系页（含询盘表单 + 询盘篮）在 kiln 版式下成型；移动端（500px）单列栈叠正常、无横向溢出 |
 | 行为层生效证据 | 同上截图 | 文件控件已回显「No file chosen」、统计同意条已出现、市场块 JS 已发起请求（本地无 API → 显示降级文案），说明 `site.js` 在新标记下**无报错执行** |
+| **发布链路端到端**（本轮补） | `.runtime/run-site-publish.mts`：对本地运行时库投一个站级 `rebuild` 任务，直接调 publisher 的 `processPublishJob` | **`{"routes":90,"status":"completed"}`，2.2 秒**；`static-site/` 产出新皮肤：`assets/site.css` 含 `KILN`/`--ember`、**不含**旧皮肤 `.site-header`；`assets/site.js` 含 `data-rfq-list`/`nav-burger`/`data-gallery`；`en/index.html` 含 `nav`/`hero`+`hero-caption`/`home-collection`/`home-product-image`/`creds`/`steps`/`foot-in` 且 `<h1>` 恰 1 个；产品页含 `pd-art`/`pd-spec`/`inquiry-form`/`data-rfq-list` |
+| 发布产物 vs 预览渲染 一致性 | 逐文件 SHA-256 对比（`.runtime/preview` ↔ `static-site`） | **89/90 路由逐字节相同**；唯一差异是 `/zh/products/page/2` 的 JSON-LD `dateModified`（发布本身刷新了该时间戳），**非皮肤差异**。同一页面的无头截图**字节完全相同**（`home-full2.png` 与 `pub-home.png` 的 SHA-256 一致） |
+
 
 **未取得验证的边界（诚实标注）**
 
@@ -101,8 +104,17 @@
 3. **分类过滤与成品图廊本机没有数据**（本地库产品无 category 标签、单图产品）→ 只验证了结构存在，
    交互未实测。
 4. 截图比对是**人工目视**，不是像素级 diff（设计源的对照图在 `opctools-redesign/shots/`）。
-5. `kiln.css` 体积 47 KB（`site.css` 合计 67 KB，未压缩），比旧皮肤（20 KB）大约 3 倍 —— **gzip 后量级正常，
-   但尚未在 prod 上量真实传输体积**。
+5. `kiln.css` 体积 47 KB（`site.css` 合计 72 KB / 67 K 字符，未压缩），比旧皮肤（20 KB）大约 3 倍 ——
+   **gzip 后量级正常，但尚未在 prod 上量真实传输体积**。
+
+**顺带发现（本地开发产物的既有漂移，非本轮引入）**
+
+本地 `static-site/` 里有 **4 个陈旧文件**（`/zh/products/e12c0b-d9ccb60c`、`e12c1-`、`e12c2-`、`e12sib-`）：
+它们**不在 `published_documents` 里**，所以 publisher 的孤儿清扫（E-12）不会退役它们 —— E-12 的判据是
+「库里登记过、但实体已删」，而这些文件根本不在库里（应是本地库被重置过、旧产物留在盘上）。
+nginx 直出会照常返回 200。prod 侧文档口径是「`static-site/**/index.html` 数 == 已发布行数」，**无此漂移**；
+清理方式：直接删这 4 个目录（本机产物，可再生）。
+
 
 ## 7. 回滚
 
