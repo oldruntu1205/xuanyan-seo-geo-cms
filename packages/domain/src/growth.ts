@@ -73,10 +73,28 @@ function publicIP(address:string){
  return false;
 }
 export async function pinnedPublicAddress(hostname:string){if(isIP(hostname))throw new DomainError('地址必须使用公开域名');const resolved=await lookup(hostname,{all:true,verbatim:true});if(!resolved.length||resolved.some(x=>!publicIP(x.address)))throw new DomainError('域名解析到非公开地址，已拒绝请求');return resolved[0];}
+/**
+ * 固定解析结果用的 `lookup` 回调（防 DNS rebinding：把连接钉死在我们已经校验过的公网 IP 上）。
+ *
+ * ⚠️ **必须同时适配 Node ≥20 的 `autoSelectFamily`（Happy Eyeballs，默认开启）**：
+ * 开启时 `net.connect` 会以 **all 模式**调用传入的 lookup（`options.all === true`），
+ * 回调**必须回 `[{address, family}]` 数组**；只回字符串地址时，Node 会去读 `entry.address`
+ * 得到 `undefined`，直接抛 `TypeError: Invalid IP address: undefined (ERR_INVALID_IP_ADDRESS)`。
+ * 2026-10-02 实测：`growth.ts` / `crm-sync.ts` / `marketing.ts` 三处各自手写过这个回调，
+ * 在本机 Node 22.23 与 prod Node 22.20（`getDefaultAutoSelectFamily() === true`）上
+ * **任何出站 HTTPS 都会失败** —— 竞品采集（A-6b）、CRM 双向（A-6c）、营销投递（D-3）三个功能同时哑火。
+ * 所以这里收敛成**唯一实现**，不要再在调用点各写一遍。
+ */
+export function pinnedLookup(pin:{address:string;family:number}){
+ return (_hostname:string,options:unknown,callback:(error:Error|null,address:string|{address:string;family:number}[],family?:number)=>void)=>{
+  const wantsAll=typeof options==='object'&&options!==null&&(options as {all?:boolean}).all===true;
+  return wantsAll?callback(null,[{address:pin.address,family:pin.family}]):callback(null,pin.address,pin.family);
+ };
+}
 async function fetchPublic(url:URL,limit:number){
  const pin=await pinnedPublicAddress(url.hostname);
  return new Promise<{status:number;type:string;body:string}>((resolve,reject)=>{
-  const req=httpsRequest({hostname:url.hostname,port:443,path:url.pathname+url.search,method:'GET',lookup:(_h,_o,cb)=>cb(null,pin.address,pin.family),headers:{'User-Agent':'SUNSBot/1.0 (public page research)','Accept':'text/html,text/plain;q=0.8'},timeout:10000},res=>{
+  const req=httpsRequest({hostname:url.hostname,port:443,path:url.pathname+url.search,method:'GET',lookup:pinnedLookup(pin),headers:{'User-Agent':'SUNSBot/1.0 (public page research)','Accept':'text/html,text/plain;q=0.8'},timeout:10000},res=>{
    const status=res.statusCode||0,type=String(res.headers['content-type']||'');const chunks:Buffer[]=[];let size=0;
    res.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>limit){req.destroy(new DomainError('网页响应超出大小上限'));return;}chunks.push(chunk);});
    res.on('end',()=>resolve({status,type,body:Buffer.concat(chunks).toString('utf8')}));res.on('error',reject);

@@ -3,7 +3,7 @@ import {request as httpsRequest} from 'node:https';
 import {query,transaction} from './db';
 import {audit,DomainError} from './crud';
 import {canRead,canWrite,getResource} from './registry';
-import {pinnedPublicAddress} from './growth';
+import {pinnedLookup,pinnedPublicAddress} from './growth';
 import type {Actor,Row} from './types';
 
 const key='crm.generic_https';
@@ -49,7 +49,7 @@ async function crmRequest(path:string,method:'GET'|'POST',body?:unknown){
  const cfg=await config();if(!cfg.enabled||!cfg.tokenCipher)throw new DomainError('CRM 连接尚未启用');const token=unseal(cfg.tokenCipher),url=new URL(path,cfg.endpoint+'/');
  const pin=await pinnedPublicAddress(url.hostname);const content=body===undefined?'':JSON.stringify(body);
  return new Promise<{status:number;data:Row}>((resolve,reject)=>{const request=httpsRequest({hostname:url.hostname,port:443,path:url.pathname+url.search,method,
-  lookup:(_hostname,_options,callback)=>callback(null,pin.address,pin.family),timeout:15000,
+  lookup:pinnedLookup(pin),timeout:15000,
   headers:{'Authorization':'Bearer '+token,'Accept':'application/json','Content-Type':'application/json','User-Agent':'SUNS-CRM-Sync/2.1',...(content?{'Content-Length':Buffer.byteLength(content)}:{})}},response=>{
    const status=response.statusCode||0;let size=0;const chunks:Buffer[]=[];response.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>1_000_000){request.destroy(new DomainError('CRM 响应过大'));return;}chunks.push(chunk);});
    response.on('end',()=>{let data:Row={};try{data=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{reject(new DomainError('CRM 返回无效 JSON',502));return;}resolve({status,data});});response.on('error',reject);
