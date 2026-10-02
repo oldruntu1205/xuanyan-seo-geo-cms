@@ -9,6 +9,29 @@ import { renderHTML,systemDocument,siteCSS,siteJS,escape } from '@suns/ui';
 import { writeAtomic,removeRoute,routeFile,removeSitemap } from './files';
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 
+// 批量发布优化（2026-10-02 事故修复，L1 终审 R12-1/R12-2 已收紧）：refreshSite() 会把「全部已发布文档」
+// 逐条重渲染 + 重建 sitemap，单次成本与已发布总数 N 成正比；过去每个任务都无条件调用它，于是批量发布
+// 退化成 O(N²)（实测 2567 个任务的批次：速率 284→372→229→158→125→106→53 条/小时，ETA 从 4 小时涨到 26+ 小时）。
+//
+// 门控语义：只有「没有其它仍在活动的发布任务」时才做站级刷新（由轮次末尾那次负责收敛）。
+// ⚠️ R12-1：必须统计全部**非终态**任务，即 pending / processing / retrying —— 只看 pending/retrying 是错的：
+//   多 worker 下任务一旦被 claim 就是 processing，此时 pending/retrying 可能为 0，会被误判「队列已空」而重复全站刷新。
+//   （本项目 publish_jobs.status 的 CHECK 是 pending|processing|completed|failed|retrying|cancelled，没有 running。）
+// ⚠️ R12-2：PUBLISH_REFRESH_MAX_DEFER_MS **不是**「站点最多陈旧 N 毫秒」的 wall-clock SLA ——
+//   它只在「有新的发布任务经过本门控」时才会被检查；若最后一个任务失败/被取消/死信而再无任务进入，
+//   站级产物（列表页/首页/sitemap/manifest）会一直停在上次刷新，不会自己触发。它应读作
+//   **active-queue defer interval**：在发布任务持续流动期间，距上次站级刷新超过该时长即强制刷新。
+//   若将来产品契约要求严格上限，必须升级为持久化的 delayed rebuild job，而不是模块级时间戳。
+const nonNegativeIntEnv=(name:string,fallback:number):number=>{const raw=process.env[name];if(raw===undefined||raw.trim()==='')return fallback;const value=Number(raw);if(!Number.isInteger(value)||value<0)throw new Error(`${name} must be a non-negative integer (got: ${raw})`);return value;};
+const PUBLISH_QUEUE_THRESHOLD=nonNegativeIntEnv('PUBLISH_QUEUE_THRESHOLD',0);
+const PUBLISH_REFRESH_MAX_DEFER_MS=nonNegativeIntEnv('PUBLISH_REFRESH_MAX_DEFER_MS',300000);
+let lastSiteRefreshAt=0;
+async function shouldRefreshSiteNow(jobId:string):Promise<boolean>{
+ if(Date.now()-lastSiteRefreshAt>=PUBLISH_REFRESH_MAX_DEFER_MS)return true;
+ const active=Number((await query("SELECT count(*) AS n FROM publish_jobs WHERE id<>$1 AND status IN('pending','processing','retrying')",[jobId]))[0].n);
+ return active<=PUBLISH_QUEUE_THRESHOLD;
+}
+
 async function writeDocument(doc:Document,jobId:string){
  const html=renderHTML(doc),checksum=digest(html),relative=routeFile(doc.route);
  await query(`INSERT INTO publish_job_routes(publish_job_id,route,action,status,started_at) VALUES($1,$2,'generate','processing',now()) ON CONFLICT(publish_job_id,route,action) DO UPDATE SET status='processing',started_at=now(),error_message=NULL`,[jobId,doc.route]);
@@ -20,6 +43,18 @@ async function store(doc:Document,jobId:string){const prior=(await query('SELECT
 async function refreshSite(jobId:string){
  await writeAtomic('assets/site.css',siteCSS);await writeAtomic('assets/site.js',siteJS);
  const locales=await query('SELECT * FROM locales WHERE is_enabled ORDER BY sort_order');const changed:string[]=[];
+ // E-12：幽灵发布清扫 —— 实体已被删除（含软删）却仍在 published_documents 里留着路由的行，会在每次 rebuild
+ // 被重新生成成幽灵页（E-11 就是这么复活的）。这里在站级刷新开头统一退役，走的仍是 removePublished()
+ // （= 正常下架同一条路径：删静态文件 + 删 published_documents + 标 static_routes='removed'），不自造清理逻辑。
+ // 注意：判据是「正向列举」每个已知 entity_type 的存活条件（unknown/未知类型不命中任何分支 → **不退役，fail closed**，
+ // 绝不会因为将来新增 entity_type 而误删公开页）。taxonomy_term_translations 没有 deleted_at 列，只校验其父 taxonomy_terms。
+ // 「实体存在但被禁用」（如 taxonomy_terms.is_enabled=false）**不算孤儿** —— 禁用应走下架流程，不属于 orphan GC（L1 Q4 裁定）。
+ const orphans=await query(`SELECT d.route FROM published_documents d
+  WHERE (d.entity_type='product_translations' AND NOT EXISTS(SELECT 1 FROM product_translations t JOIN products p ON p.id=t.product_id WHERE t.id=d.entity_id AND t.deleted_at IS NULL AND p.deleted_at IS NULL))
+     OR (d.entity_type='content_item_translations' AND NOT EXISTS(SELECT 1 FROM content_item_translations t JOIN content_items p ON p.id=t.content_item_id WHERE t.id=d.entity_id AND t.deleted_at IS NULL AND p.deleted_at IS NULL))
+     OR (d.entity_type='taxonomy_term_translations' AND NOT EXISTS(SELECT 1 FROM taxonomy_term_translations t JOIN taxonomy_terms p ON p.id=t.term_id WHERE t.id=d.entity_id AND p.deleted_at IS NULL))`);
+ if(orphans.length)console.log('Retiring orphan published documents: count='+orphans.length+' job='+jobId+' routes='+orphans.map(o=>String(o.route)).join(','));
+ for(const orphan of orphans){await removePublished(String(orphan.route),jobId);changed.push(String(orphan.route));}
  const disabled=await query('SELECT route FROM published_documents WHERE locale_id NOT IN(SELECT id FROM locales WHERE is_enabled)');for(const x of disabled){await removePublished(x.route,jobId);changed.push(x.route);}
  for(const locale of locales){const ctx=await siteContext(locale.id);const released=(await query("SELECT snapshot FROM published_documents WHERE locale_id=$1 AND entity_type<>'system' ORDER BY published_at DESC",[locale.id])).map(r=>r.snapshot as Document);
   const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||''));const card=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,title:d.title,description:d.description,media:d.media,applications:d.product?.applications||[]});
@@ -66,7 +101,8 @@ export async function processPublishJob(job:Job){
    if(task.job_type==='unpublish'){for(const item of old){await removePublished(item.route,jobId);changed.push(item.route);}if(task.entity_type!=='taxonomy_term_translations'){const status=task.entity_type==='product_translations'?'publish_status':'status';await query(`UPDATE ${task.entity_type} SET ${status}='draft',scheduled_at=NULL WHERE id=$1`,[task.entity_id]);}}
    else{if(!doc)throw new Error('Publish snapshot missing');const live=(await query(`SELECT * FROM ${task.entity_type} WHERE id=$1`,[task.entity_id]))[0];if(!live||live.deleted_at)throw new Error('Content was removed');if(live.path!==doc.route)throw new Error('Path changed after scheduling. Submit a new publish request.');for(const item of old)if(item.route!==doc.route){await removePublished(item.route,jobId);changed.push(item.route);}await store(doc,jobId);changed.push(doc.route);if(task.entity_type!=='taxonomy_term_translations'){const status=task.entity_type==='product_translations'?'publish_status':'status';await query(`UPDATE ${task.entity_type} SET ${status}='published',published_at=now(),scheduled_at=NULL WHERE id=$1`,[task.entity_id]);}}
   }
-  changed.push(...await refreshSite(jobId));const written=await query("SELECT DISTINCT r.route FROM publish_job_routes r LEFT JOIN static_routes s ON s.route=r.route WHERE r.publish_job_id=$1 AND (r.status='completed' OR s.last_publish_job_id=$1)",[jobId]);await purge(written.map(r=>r.route),jobId);await query("UPDATE publish_jobs SET status='completed',finished_at=now(),error_message=NULL WHERE id=$1",[jobId]);return {routes:changed.length,status:'completed'};
+  const forceRefresh=task.entity_type==='site';const gate=forceRefresh?'yes':(await shouldRefreshSiteNow(jobId)?'yes':'deferred');
+  if(gate==='yes'){changed.push(...await refreshSite(jobId));lastSiteRefreshAt=Date.now();}else{console.log('Site refresh deferred (bulk publish in progress), job '+jobId);}const written=await query("SELECT DISTINCT r.route FROM publish_job_routes r LEFT JOIN static_routes s ON s.route=r.route WHERE r.publish_job_id=$1 AND (r.status='completed' OR s.last_publish_job_id=$1)",[jobId]);await purge(written.map(r=>r.route),jobId);await query("UPDATE publish_jobs SET status='completed',finished_at=now(),error_message=NULL WHERE id=$1",[jobId]);return {routes:changed.length,status:'completed'};
  }catch(error:any){if(started)await query("UPDATE publish_jobs SET status=CASE WHEN attempt_count>=max_attempts THEN 'failed' ELSE 'retrying' END,error_message=$2,finished_at=now() WHERE id=$1",[jobId,String(error.message).slice(0,4000)]);throw error;}
  finally{await lock.query('SELECT pg_advisory_unlock(837611,1)').catch(()=>{});lock.release();}
 }

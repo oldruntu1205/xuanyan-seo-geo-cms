@@ -1,8 +1,13 @@
 import path from 'node:path';
-import { mkdir,realpath,writeFile,rename,unlink } from 'node:fs/promises';
+import { mkdir,realpath,writeFile,rename,unlink,rmdir } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 export function outputRoot(){return path.resolve(process.env.STATIC_OUTPUT_DIR||'../../static-site');}
 export function routeFile(route:string){if(!/^\/[a-z0-9][a-z0-9/_-]*$/.test(route)||route.includes('//'))throw new Error('Unsafe static route');return route.replace(/^\//,'')+'/index.html';}
 export async function writeAtomic(relative:string,content:string){const root=outputRoot();await mkdir(root,{recursive:true});const realRoot=await realpath(root);const file=path.resolve(root,relative);if(!file.startsWith(root+path.sep))throw new Error('Output outside static root');await mkdir(path.dirname(file),{recursive:true});const realParent=await realpath(path.dirname(file));if(realParent!==realRoot&&!realParent.startsWith(realRoot+path.sep))throw new Error('Symlink escapes output root');const temp=file+'.'+randomUUID()+'.tmp';try{await writeFile(temp,content,{encoding:'utf8',flag:'wx'});await rename(temp,file);}catch(e){await unlink(temp).catch(()=>{});throw e;}return file;}
-export async function removeRoute(route:string){const root=outputRoot(),relative=routeFile(route);const file=path.resolve(root,relative);try{const rp=await realpath(path.dirname(file));const rr=await realpath(root);if(rp!==rr&&!rp.startsWith(rr+path.sep))throw new Error('Unsafe output path');await unlink(file);}catch(e:any){if(e.code!=='ENOENT')throw e;}}
+export async function removeRoute(route:string){const root=outputRoot(),relative=routeFile(route);const file=path.resolve(root,relative);try{const rp=await realpath(path.dirname(file));const rr=await realpath(root);if(rp!==rr&&!rp.startsWith(rr+path.sep))throw new Error('Unsafe output path');await unlink(file);}catch(e:any){if(e.code!=='ENOENT')throw e;}
+ // E-12：删掉 index.html 后，把因此变空的父目录一并清理（空目录会污染后续孤儿扫描）。
+ // 三重护栏：只删 root 之内、只删空目录（rmdir 遇非空/不存在即停）、绝不删 root 自身。
+ const emptyRoot=await realpath(root).catch(()=>root);let dir=path.dirname(file);
+ while(dir!==emptyRoot&&dir.startsWith(emptyRoot+path.sep)){try{await rmdir(dir);}catch{break;}dir=path.dirname(dir);}
+}
 export async function removeSitemap(name:string){if(!/^sitemap-[a-z0-9-]+\.xml$/.test(name))throw new Error('Unsafe sitemap filename');const root=await realpath(outputRoot());try{await unlink(path.join(root,name));}catch(e:any){if(e.code!=='ENOENT')throw e;}}
