@@ -228,6 +228,20 @@ export async function handle(request:Request,{params}:{params:Promise<{path:stri
    const bytes=await boundedBody(request,26*1024*1024);const copy=new Request(request.url,{method:'POST',headers:request.headers,body:bytes as any});const form=await copy.formData();const file=form.get('file');if(!(file instanceof File))throw new DomainError('请选择文件');return response(await uploadMedia(file,actor),201);
   }
   if(path[0]==='publish'&&request.method==='POST'){const b=await json(request);return response(b.resource==='site'?await rebuildSite(actor):await requestPublish(actor,b.resource,b.id,b.action,b.scheduledAt),202);}
+  // 批量发布：逐条走 requestPublish，保留权限校验、内容版本乐观锁与审计记录。
+  // 单次上限 200 条：每个发布任务都会触发一次全站 refresh（系统页 + 18 个 sitemap 分片），
+  // 一次塞几千条会把队列和 worker 压垮；调用方需自行分批。
+  // 逐条失败不影响其它条目，结果里分别返回 created / failed，便于前端如实告知。
+  if(path[0]==='publish-batch'&&request.method==='POST'){
+   const b=await json(request);
+   const input=z.object({items:z.array(z.object({resource:z.string().min(1).max(60),id:z.string().uuid()})).min(1).max(200)}).parse(b);
+   const created:Row[]=[];const errors:Row[]=[];
+   for(const item of input.items){
+    try{const job=await requestPublish(actor,item.resource,item.id);created.push({resource:item.resource,id:item.id,job_id:job.id});}
+    catch(error:any){errors.push({resource:item.resource,id:item.id,error:error instanceof DomainError?error.message:'发布失败，请稍后重试'});}
+   }
+   return response({created:created.length,failed:errors.length,jobs:created,errors:errors.slice(0,20)},202);
+  }
   if(path[0]==='jobs'&&request.method==='POST'){const b=await json(request);return response(await jobAction(actor,b.id,b.action));}
   if(path[0]==='restore'&&request.method==='POST'){const b=await json(request);return response(await restoreRevision(actor,b.id));}
   return response({error:'Not found'},404);
