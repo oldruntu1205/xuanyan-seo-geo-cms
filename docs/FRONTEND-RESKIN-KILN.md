@@ -157,7 +157,52 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 | 询盘 API 契约回归 | prod `bash /root/verify-prod-v31.sh`（项目既有脚本，自清理） | **全 PASS**：提交 **201**（`RFQ-20261002-B7737803`）、`preferred_incoterm/specification_notes/target_delivery_on/inquiry_type` 四列落库正确、附件 bytea 与声明大小一致、未登录下载附件 **401**、同 key 幂等（行数 1）、非法 incoterm **400 而非 500**、蜜罐 **200 静默丢弃且建单 0**、测试数据清理干净（inquiries 0 / attachments 0） |
 | 生产页 JS 真实执行 | 无头 Chrome `--dump-dom`（跑完 JS 后的 DOM） | 生产产品页出现 **6 处 `data-ready="1"`**，其中 `<div class="bd" data-rfq-list … data-ready="1">`、`<div class="file-field" data-ready="1">`、`<div data-analytics class="analytics-consent" data-ready="1">` 三处分别证明**询盘篮 / kiln 文件控件 / 统计同意**三个模块已执行；`data-carousel` 在产品页为 0（只有首页有轮播，符合预期）⇒ 新标记下 `site.js` 无报错执行 |
 
-### 6.1 图片入库链路：本地端到端首验（2026-10-02，生产待授权）
+### 8.1 上生产后被数值探针抓出的真缺陷：卡片图被放大裁切（2026-10-02 已修复并重新部署）
+
+**症状**（生产公网）：产品列表/首页/分类页的卡片图被放大约 **2.4 倍**并切掉四边内容 ——
+电商摄影截图上的中文角标、文字被裁（`.runtime/shots/live-products.png` 为修复前）。
+
+**根因**（不是 `<picture>` 包装层 —— 那层 `display:contents` 早已生效、实测 picture 是 0×0）：
+kiln 的 `.card-art / .home-product-image / .pd-art / .thumbs button` 都写成
+`aspect-ratio + display:grid + place-items:center` 却**没有声明列/行**，那条 **auto 轨道**由内容的
+max-content 决定：图片固有宽 800/1200 把轨道撑开，于是 `img{width:66%}` 解析成「轨道宽 × 66%」
+= **528**（实测），而卡片本体只有 430，超出部分被 `overflow:hidden` 裁掉。
+kiln 原版不暴露是因为它的素材是「透明底 + 产品居中」的抠图，放大裁切后主体仍在；
+换成满幅电商摄影就会切掉内容。
+
+**修法**（不动 66%/72% 观感参数，只把基准拉回容器）：
+1. 四处容器加 `grid-template-columns:{columns,rows}:minmax(0,1fr)`；
+2. `.home-product-image picture` 由「grid 铺满」改回 `display:contents` —— 那种写法让 picture 自己成为
+   **嵌套 grid**，内层 auto 轨道又按固有宽撑开（实测 792 = 1200×0.66），外层轨道修复管不到；
+3. `.pd-art img / .thumbs button img` 加 `max-width/height:100%` 兜底。
+
+**证据**
+
+| 检查 | 修复前 | 修复后 |
+| --- | --- | --- |
+| `.home-product-image img`（容器 430） | 792（=1200×0.66） | **284（=430×0.66）fit** |
+| `.card-art img`（容器 430） | 528（=800×0.66） | **284 fit** |
+| `.pd-art img`（容器 623，kiln 用 72%） | — | **447（=623×0.72）fit** |
+| 卡片图落位探针（`.runtime/run-card-probe.mjs`） | — | **PROD VERDICT clean，30/30** |
+| 生产内容溢出探针（8 页 × 5 宽度） | OVERFLOW 10/40（报警元素全部是被放大的卡片图） | **clean，35/35，且再无任何元素越界** |
+| 目视 | `.runtime/shots/live-products.png`（满幅放大） | `.runtime/shots/live-products-fixed2.png`（284/430，左右留暗边） |
+
+**流程教训（值得记）**
+1. **本地演示图看不出这个缺陷**：本地素材是「产品居中」的演示图，放大裁切后主体仍在；
+   生产素材是满幅电商截图，切掉的是文字与角标。⇒ **版式类缺陷必须在生产内容上验，不能只验本地**。
+2. **数值探针先报了我「想当成假阳性」的结论**：辅助判据（逐元素最右）报了 10 处，我一度按
+   设计侧「祖先裁剪会假阳性」的经验准备放过 —— 拉出元素与裁剪祖先链、再对上截图才发现是真缺陷。
+   ⇒ **假阳性的判据是「元素是否真的伸出内容区」，不是「有没有被裁剪」**；被 `overflow:hidden` 裁剪
+   只能说明症状被藏住，不能说明没问题。
+3. **取证时踩了自己的坑**：核验线上 CSS 时读到的是几小时前为「部署前基线」存下的那份文件
+   （里面还是旧皮肤规则），差点据此得出"线上 CSS 没有修复"的错误结论。
+   ⇒ 取线上资产一律**新取到新文件名**，不要复用早前为别的目的存下的副本。
+4. 部署脚本内嵌公网验收再次出现 **000 瞬时项**（这次是 `/en`，上次是 `/manage`），复测即 200
+   —— **PM2 重启后首请求预热**，判据是「复测两次 + 其它端点同批 200」。
+
+
+
+### 8.2 图片入库链路：本地端到端首验（2026-10-02，生产待授权）
 
 这条链路的「按 slug 找产品 → 挂主图」分支在此前**从未真正执行过**（本地库没有那 19 个 slug、生产还没跑）。
 本轮起了本地 CMS（`pnpm --filter @suns/cms dev` + `.runtime/connection.json` 的 `DATABASE_URL`，health 200），
@@ -195,7 +240,7 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 换肤把版式问题解决了，剩下的观感问题全部来自**内容字段为空**。公网实测证据：
 
 1. **产品图仍是电商详情页截图**：产品页主图带「包邮」「13% 增值税发票 专业定制 破損包赔」角标与品牌丝印
-   —— 这正是本轮重设计已经重建、但**尚未入库**的那 19 张图。工具与映射已就绪（见 §8 与脚本头部 runbook）。
+   —— 这正是本轮重设计已经重建、但**尚未入库**的那 19 张图。工具与映射已就绪（见 §8.2 与脚本头部 runbook）。
 2. **品牌名是 CMS 默认值**：导航字标、页脚、hero 说明位都是「玄砚·企业智慧营销CMS系统」，
    而重设计采用的站点字标是 **OPCTOOLS**（域名派生）。`site_settings` / `site_setting_translations` 需人工填。
 3. **首页 hero 是演示种子内容**：标题「你好，标题」、正文「说明文字说明文字…」、配图是**纽约城市天际线**
@@ -212,7 +257,7 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 
 1. ~~未上生产~~ → **已上生产（2026-10-02 22:00），见 §8**。prod `static-site/` 3053 页已全部是新皮肤。
    回滚 = `/root/suns-backups/static-site_20261002_215818.tar.gz` 解回 + `_backup_20261002_215728` 的 `.next`。
-2. **19 张重建产品图未入库**（本轮用户只授权了部署）：**链路已本地端到端验过（见 §6.1，链条 15/15、幂等、回滚 5/5）**，
+2. **19 张重建产品图未入库**（本轮用户只授权了部署）：**链路已本地端到端验过（见 §8.2，链条 15/15、幂等、回滚 5/5）**，
    工具已就绪并带写入前安全门（`--precheck` / `--only` 金丝雀 / `--force` / `--revert`），
    19/19 slug 已对照公网 sitemap 校验通过。策略：新图升为 `sort_order=0`、老图降为附图、**不删任何资产**。
    执行口径（一条命令，无需隧道）：`$env:CMS_BASE='https://www.opctools.cloud'` + 管理员凭据。
