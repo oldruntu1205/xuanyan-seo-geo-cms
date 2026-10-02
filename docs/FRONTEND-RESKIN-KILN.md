@@ -185,6 +185,7 @@ kiln 原版不暴露是因为它的素材是「透明底 + 产品居中」的抠
 | `.pd-art img`（容器 623，kiln 用 72%） | — | **447（=623×0.72）fit** |
 | 卡片图落位探针（`.runtime/run-card-probe.mjs`） | — | **PROD VERDICT clean，30/30** |
 | 生产内容溢出探针（8 页 × 5 宽度） | OVERFLOW 10/40（报警元素全部是被放大的卡片图） | **clean，35/35，且再无任何元素越界** |
+| **宽覆盖复核**（修复后铺开，9 语言） | — | **溢出探针 19 页 × 5 宽度 = 95 组合 clean**（9 语言首页、en/de/ja 列表页、en 产品详情、en/de/ja 联系页、en/zh 博客、en 搜索页）；**卡片图探针 91 张全部 fit/ratio-ok**（9 语言首页 `.home-product-image`、3 语言列表页 `.card-art` 各 24 张、产品详情 `.pd-art` 447=623×0.72、`natural=800` 证明确实是已加载的真图） |
 | 目视 | `.runtime/shots/live-products.png`（满幅放大） | `.runtime/shots/live-products-fixed2.png`（284/430，左右留暗边） |
 
 **流程教训（值得记）**
