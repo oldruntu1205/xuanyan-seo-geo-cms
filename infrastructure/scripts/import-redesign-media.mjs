@@ -9,15 +9,22 @@
 //   node infrastructure/scripts/import-redesign-media.mjs --apply              # 真正上传 + 挂图 + 设 featured_media_id
 //   node infrastructure/scripts/import-redesign-media.mjs --apply --publish    # 追加：逐个产品重新发布 + 站级重建
 //   node infrastructure/scripts/import-redesign-media.mjs --apply --only latex-rubber-gloves   # 只做一条（金丝雀）
+//   node infrastructure/scripts/import-redesign-media.mjs --revert --only latex-rubber-gloves  # 撤销（摘主图 + 还原 sort_order + 软删资产）
+//   node infrastructure/scripts/import-redesign-media.mjs --revert --publish                    # 全量撤销并重发
 //   --source <dir>   重设计目录（默认 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign）
 //   --cms-base <url> CMS 基址（默认 env CMS_BASE 或 http://localhost:3001）
 //   --live <sitemap-url> 对照用的公网产品 sitemap（默认 https://www.opctools.cloud/sitemap-en-products-1.xml）
 //
-// 打生产（推荐做法：脚本留在开发机跑，CMS 经 SSH 隧道暴露到本地）：
-//   ssh -N -L 3001:127.0.0.1:3001 root@43.132.209.126        # 另开一个窗口
-//   $env:CMS_BASE='http://127.0.0.1:3001'; node infrastructure/scripts/import-redesign-media.mjs            # 先 dry-run
-//   node infrastructure/scripts/import-redesign-media.mjs --apply --only latex-rubber-gloves                # 金丝雀一条
-//   node infrastructure/scripts/import-redesign-media.mjs --apply --publish                                 # 全量 + 重发
+// ⚠️ Origin 白名单（本机实测踩过）：脚本按 --cms-base 发 `Origin` 头，服务端 `checkOrigin` 会拿它比对
+//    `CORS_ORIGINS`，不在白名单就 **403「请求来源未获许可」**。例如 .env 写的是 `http://localhost:3001`，
+//    用 `--cms-base http://127.0.0.1:3001` 就会 403。打生产建议直接指向公网域名（无需隧道）：
+//      $env:CMS_BASE='https://www.opctools.cloud'; $env:CMS_EMAIL=...; $env:CMS_PASSWORD=...
+//    走 SSH 隧道时，隧道的本地地址必须与 `CORS_ORIGINS` 里的一条完全一致（含 host 写法与端口）。
+//
+// 打生产（推荐做法：脚本留在开发机跑，直连公网 CMS）：
+//   $env:CMS_BASE='https://www.opctools.cloud'; node infrastructure/scripts/import-redesign-media.mjs            # 先 dry-run
+//   node infrastructure/scripts/import-redesign-media.mjs --apply --only latex-rubber-gloves                      # 金丝雀一条
+//   node infrastructure/scripts/import-redesign-media.mjs --apply --publish                                       # 全量 + 重发
 // 之所以不在 prod 机器上跑：图片与模板在开发机（H:/Workbuddy/...），且 prod 只有 1.96 GB 内存。
 //
 // 前置（仅 --apply 需要）：管理员凭据在 .runtime/demo-admin.txt，或用 CMS_EMAIL / CMS_PASSWORD 环境变量。
@@ -105,6 +112,38 @@ function api(token) {
 
 const recordQuery = (resource, filter, extra = '') => '/api/v1/records?resource=' + resource + (filter ? '&filter=' + encodeURIComponent(JSON.stringify(filter)) : '') + extra;
 
+// --revert：只撤本脚本自己写过的东西，别的资产与挂图一律不碰。
+//   ① 摘掉它挂的 product_media 主图行；② 把当时被 +1 的同产品其它行减回去；
+//   ③ 若 products.featured_media_id 指向它，则清空；④ 软删该资产（媒体文件仍留在 media/，由运维决定是否删）。
+async function revertAll(items, call, alsoPublish) {
+  let reverted = 0;
+  for (const item of items) {
+    const filename = 'redesign-' + item.img;
+    const media = (await call(recordQuery('media_assets', { original_filename: filename }, '&limit=1'))).rows[0];
+    if (!media) { console.log('skip    ' + filename + '（库里没有这个资产）'); continue; }
+    const translations = (await call(recordQuery('product_translations', { slug: item.slug }))).rows;
+    let restored = 0;
+    if (translations.length) {
+      const productId = translations[0].product_id;
+      const links = (await call(recordQuery('product_media', { product_id: productId }))).rows;
+      const link = links.find((row) => row.media_id === media.id);
+      if (link) {
+        await call('/api/v1/records?resource=product_media', { method: 'DELETE', body: { key: { id: link.id } } });
+        for (const row of links) if (row.id !== link.id && Number(row.sort_order) >= 1) { await call('/api/v1/records?resource=product_media', { method: 'PATCH', body: { key: { id: row.id }, data: { sort_order: Number(row.sort_order) - 1 } } }); restored++; }
+        const product = (await call(recordQuery('products', { id: productId }, '&limit=1'))).rows[0];
+        if (product && product.featured_media_id === media.id) await call('/api/v1/records?resource=products', { method: 'PATCH', body: { key: { id: productId }, data: { featured_media_id: null } } });
+        console.log('revert  ' + item.slug + '：主图已摘除，' + restored + ' 行 sort_order 已还原');
+      } else console.log('skip    ' + item.slug + '（没有本脚本挂的主图，仅处理资产）');
+      if (alsoPublish) for (const row of translations) await call('/api/v1/publish', { method: 'POST', body: { resource: 'product_translations', id: row.id, action: 'publish' } });
+    }
+    await call('/api/v1/records?resource=media_assets', { method: 'DELETE', body: { key: { id: media.id } } });
+    console.log('revert  资产已软删 ' + filename);
+    reverted++;
+  }
+  console.log('\n回滚完成：处理 ' + reverted + ' 项。软删不改磁盘，media/ 下的文件仍在（要彻底清理由运维删）。');
+  if (alsoPublish) { await new Promise((resolve) => setTimeout(resolve, 4000)); await call('/api/v1/publish', { method: 'POST', body: { resource: 'site' } }); console.log('站级重建已提交。'); }
+}
+
 async function main() {
   const cards = readCards();
   const live = await liveProducts();
@@ -117,12 +156,31 @@ async function main() {
   if (only && !uploadable.length) throw new Error('--only 指定的 slug 不在设计稿里：' + only);
   console.log('待上传图片：' + uploadable.length + ' 张（clean/ 900² 统一画布；clean-tight/ 是给 hero 用的保比例版，产品主图不用）' + (only ? '［--only 金丝雀模式］' : ''));
   for (const item of uploadable) console.log('  ' + item.slug.padEnd(72) + ' <- ' + item.img + '  ' + Math.round(item.bytes / 1024) + ' KB');
-  if (!apply) { console.log('\n[dry-run] 未写任何数据。确认无误后加 --apply 执行。'); return; }
+  if (!apply && !has('revert') && !has('precheck')) { console.log('\n[dry-run] 未写任何数据。确认无误后加 --apply 执行。'); return; }
 
   const token = await login();
   const call = api(token);
-  let uploaded = 0, reused = 0, linked = 0;
+  if (has('revert')) { await revertAll(uploadable, call, publish); return; }
+
+  // ── 写之前的安全门：先只读地问目标环境「19 个 slug 能不能解析到产品」──────────────
+  // 这一步是「按 slug 映射」的前置：解析不到就等于白上传（资产进库但不挂产品）。
+  // 默认：有未命中就**在写任何数据之前中止**；确认要跳过才加 --force。--precheck 只跑这段就退出。
+  const resolved = [];
+  const unresolved = [];
   for (const item of uploadable) {
+    const rows = (await call(recordQuery('product_translations', { slug: item.slug }))).rows;
+    if (rows.length) resolved.push({ item, productId: rows[0].product_id, translations: rows });
+    else unresolved.push(item.slug);
+  }
+  const en = (await call(recordQuery('locales', { code: 'en' }, '&limit=1'))).rows[0];
+  console.log('预检：slug 命中 ' + resolved.length + '/' + uploadable.length
+    + '；en 语言可读=' + (en ? 'yes' : 'no（locales 属 system 组，需 admin 账号 → 英文 alt 将不写入）')
+    + (unresolved.length ? '；未命中：' + unresolved.join(', ') : ''));
+  if (has('precheck')) { console.log('[precheck] 只读预检结束，未写任何数据。'); return; }
+  if (unresolved.length && !has('force')) throw new Error('目标环境有 ' + unresolved.length + ' 个 slug 解析不到产品：' + unresolved.join(', ') + '\n上传会白做。确认要跳过它们再加 --force。');
+
+  let uploaded = 0, reused = 0, linked = 0;
+  for (const { item, productId, translations } of resolved) {
     const filename = 'redesign-' + item.img;
     const existing = (await call(recordQuery('media_assets', { original_filename: filename }, '&limit=1'))).rows[0];
     let media = existing;
@@ -132,19 +190,16 @@ async function main() {
       form.append('file', new Blob([fs.readFileSync(item.file)], { type: 'image/png' }), filename);
       const response = await fetch(base + '/api/v1/upload', { method: 'POST', headers: { Origin: origin, Authorization: 'JWT ' + token }, body: form });
       const text = await response.text();
-      if (!response.ok) throw new Error('上传失败 ' + filename + ' -> ' + response.status + ' ' + text.slice(0, 200));
+      if (!response.ok) throw new Error('上传失败 ' + filename + ' -> ' + response.status + ' ' + text.slice(0, 200)
+        + (response.status === 403 ? '（403 多为 Origin 不在 CORS_ORIGINS 白名单：见文件头 ⚠️ 说明）' : ''));
       media = JSON.parse(text); uploaded++;
       console.log('upload  ' + filename + ' -> ' + String(media.id).slice(0, 8) + ' ' + media.width + 'x' + media.height);
       // alt 只写英文：设计稿的 alt 是英文；其它语言由运营在后台补，前台在缺失时回退到产品标题（见 packages/ui/src/index.ts 的 image()）。
       // 注意：locales 属于 'system' 组，**只有 admin/super_admin 读得到**（registry.ts 的 canRead）；
-      // 用编辑类账号跑本脚本时，这一步会查不到 en 语言 —— 下面显式告警，不静默跳过。
-      const en = (await call(recordQuery('locales', { code: 'en' }, '&limit=1'))).rows[0];
+      // 用编辑类账号跑本脚本时，这一步会查不到 en 语言 —— 上面预检已显式告警，这里再兜一次底。
       if (!en) console.log('  ⚠ 读不到 en 语言（locales 属 system 组，需 admin 账号）→ 英文 alt 未写入，图仍可用');
       else if (item.alt) await call('/api/v1/records?resource=media_asset_translations', { method: 'POST', body: { data: { media_id: media.id, locale_id: en.id, alt_text: item.alt } } });
     }
-    const translations = (await call(recordQuery('product_translations', { slug: item.slug }))).rows;
-    if (!translations.length) { console.log('  ⚠ 库里没有 slug=' + item.slug + ' 的产品，跳过挂图'); continue; }
-    const productId = translations[0].product_id;
     const links = (await call(recordQuery('product_media', { product_id: productId }))).rows;
     if (links.some((row) => row.media_id === media.id)) console.log('  = 已挂过，跳过');
     else {

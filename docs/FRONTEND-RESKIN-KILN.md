@@ -157,6 +157,34 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 | 询盘 API 契约回归 | prod `bash /root/verify-prod-v31.sh`（项目既有脚本，自清理） | **全 PASS**：提交 **201**（`RFQ-20261002-B7737803`）、`preferred_incoterm/specification_notes/target_delivery_on/inquiry_type` 四列落库正确、附件 bytea 与声明大小一致、未登录下载附件 **401**、同 key 幂等（行数 1）、非法 incoterm **400 而非 500**、蜜罐 **200 静默丢弃且建单 0**、测试数据清理干净（inquiries 0 / attachments 0） |
 | 生产页 JS 真实执行 | 无头 Chrome `--dump-dom`（跑完 JS 后的 DOM） | 生产产品页出现 **6 处 `data-ready="1"`**，其中 `<div class="bd" data-rfq-list … data-ready="1">`、`<div class="file-field" data-ready="1">`、`<div data-analytics class="analytics-consent" data-ready="1">` 三处分别证明**询盘篮 / kiln 文件控件 / 统计同意**三个模块已执行；`data-carousel` 在产品页为 0（只有首页有轮播，符合预期）⇒ 新标记下 `site.js` 无报错执行 |
 
+### 6.1 图片入库链路：本地端到端首验（2026-10-02，生产待授权）
+
+这条链路的「按 slug 找产品 → 挂主图」分支在此前**从未真正执行过**（本地库没有那 19 个 slug、生产还没跑）。
+本轮起了本地 CMS（`pnpm --filter @suns/cms dev` + `.runtime/connection.json` 的 `DATABASE_URL`，health 200），
+造一个 `slug=latex-rubber-gloves` 的探针产品，然后真跑：
+
+| 检查 | 结果 |
+| --- | --- |
+| `--apply --only latex-rubber-gloves` | upload **900×900** → 8 条变体行 + 9 个文件落盘 → en alt「Latex rubber gloves」→ `product_media(main, sort_order=0)` → `products.featured_media_id` 指向新图 |
+| 链条逐环核验（`.runtime/check-import-chain.mjs`） | **PASS=15 / FAIL=0**（资产行、宽高、sha256、主文件大小==file_size、8 条变体、变体文件全落盘、variant_name 规范、alt、featured、挂图行、行数） |
+| 幂等 | 复跑同一条：**复用 1 / 新挂 0**，同名资产仍 1 行、变体总数不翻倍 |
+| 回滚（本轮新增 `--revert`） | 摘主图 + 把当时被 +1 的行减回 + 清 `featured_media_id` + 软删资产；核验 **PASS=5 / FAIL=0**；两轮「导入→回滚」循环均可重复 |
+| 写入前安全门 | `--precheck` 只读预检（19 个 slug 能否解析到产品 + `en` 语言可读性）；`--apply` 默认先跑预检，**有未命中就在写任何数据之前中止**（要跳过须显式 `--force`）。实测拦停后库里零变化 |
+
+**两个上生产才会炸的点（已修/已写进脚本头）**
+
+1. **`Origin` 必须落在 `CORS_ORIGINS` 白名单里**。`.env` 写的是 `http://localhost:3001`，
+   用 `--cms-base http://127.0.0.1:3001` 上传直接 **403「请求来源未获许可」**（登录能过、上传被拒，极易误判）。
+   ⇒ 打生产建议 **`CMS_BASE=https://www.opctools.cloud` 直连**（公网可达，**不需要 SSH 隧道**）；
+   走隧道则本地地址必须与白名单**逐字符一致**。脚本遇到 403 会直接打印这条提示。
+2. **变体档位不是"4 个宽度"**：`media_variants.width` 记的是**实际输出宽度**，源图 900px 时 1280/1920 两档
+   按 `withoutEnlargement` 都输出 900 ⇒ 8 行 / **3 个不同宽度**。（我的第一版断言按"4 个宽度"写，假红了一次。）
+
+配套取证脚本（都在 `.runtime/`，不进 git）：`probe-import-target.mjs`（造/清探针产品）、
+`check-import-chain.mjs`（15 条链条断言）、`check-import-revert.mjs`（5 条回滚断言）、
+`cleanup-import-probe.mjs`（按 object_key 前缀清残留行与文件）。**探针已彻底清场**：
+本地库回到导入前（同名资产 0 行、变体 216 行、alt 38 行），`media/` 无残留文件。
+
 **验收脚本自身的一个夹具缺陷（已修，值得记）**：v1 用 `set -o pipefail` + `echo "$大字符串" | grep -q 模式`，
 `grep -q` 命中即退出会让 `echo` 收到 SIGPIPE，管线状态变成 141 ⇒ **文件里明明存在的模式被判成 no**
 （命中位置越靠前越容易触发：`KILN` 在文件头，于是三个"存在性"断言全假红）。
@@ -184,9 +212,10 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 
 1. ~~未上生产~~ → **已上生产（2026-10-02 22:00），见 §8**。prod `static-site/` 3053 页已全部是新皮肤。
    回滚 = `/root/suns-backups/static-site_20261002_215818.tar.gz` 解回 + `_backup_20261002_215728` 的 `.next`。
-2. **19 张重建产品图未入库**（本轮用户只授权了部署）：工具已就绪且默认 dry-run
-   （`node infrastructure/scripts/import-redesign-media.mjs`，含 `--only` 金丝雀与 prod runbook），
+2. **19 张重建产品图未入库**（本轮用户只授权了部署）：**链路已本地端到端验过（见 §6.1，链条 15/15、幂等、回滚 5/5）**，
+   工具已就绪并带写入前安全门（`--precheck` / `--only` 金丝雀 / `--force` / `--revert`），
    19/19 slug 已对照公网 sitemap 校验通过。策略：新图升为 `sort_order=0`、老图降为附图、**不删任何资产**。
+   执行口径（一条命令，无需隧道）：`$env:CMS_BASE='https://www.opctools.cloud'` + 管理员凭据。
    ⚠️ 这是当前"看起来还没做完"的**头号原因**（见 §9 第 1 条）。
 3. **非英语 alt 未翻译**：入库脚本只写英文 alt（设计稿给的就是英文），其余 8 语言由运营在后台补；
    前台在缺失时回退到产品标题。
