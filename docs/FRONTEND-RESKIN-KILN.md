@@ -144,12 +144,50 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 旧皮肤源码快照另存于 `.runtime/design-backups/2026-10-02T21-47-01-kiln/`（含 README）。
 **注意**：静态产物不会自动回滚，需重新发布一次（后台「重建已发布站点」或 `sync-prod.ps1`）才换回旧皮肤。
 
-## 8. 遗留
+## 8. 上生产记录（2026-10-02 22:00，用户授权后执行）
 
-1. **未上生产**：本轮只动仓库与本地渲染，`static-site/` 与 prod 仍是旧皮肤，需一次全站重建才可见。
-2. **19 张重建产品图未入库**：工具已就绪且默认 dry-run（`node infrastructure/scripts/import-redesign-media.mjs`），
-   19/19 slug 已对照公网 sitemap 校验通过；真正写库前需确认目标环境与挂图策略（新图升为 `sort_order=0`，
-   老图降为附图，不删除任何资产）。
+| 步骤 | 命令 | 结果 |
+| --- | --- | --- |
+| 前端部署 | `pwsh -File _deploy/sync-prod.ps1 -KeyPath ~/.ssh/id_ed25519` | 构建 exit 0；包 21.2 MB / 2208 文件（自检无 `.env`、无源码 `node_modules`）；迁移 001–029 全 applied 且**无新增**；`pm2 delete/start suns-cms suns-worker` 两进程 online、restarts 0；备份 `_backup_20261002_215728`；公网 7/8 通过 |
+| （其中 `/manage`） | 部署脚本内置验收 | 首次 **000**（超时）→ 复测 **200 / 2.1s、再测 1.2s** ⇒ 是 PM2 重启后首请求预热的瞬时现象，**不是回归** |
+| 全站重建 | `bash /root/rebuild-prod-site.sh`（先备份 static-site 到 `/root/suns-backups/static-site_20261002_215818.tar.gz`，3.4 MB） | 任务 `de349f68…` **completed，约 45 秒**；`static-site` 页面数 **3053 = 库里已发布文档数 3053**（零漂移）；`site.css` **73,714 字节，与本机产物同尺寸** |
+| 产物切换证据 | 产物级 grep | `site.css`：`KILN` 命中 2、`--ember` 命中 26、旧皮肤 `.site-header` **归零**；`site.js`：`nav-burger`/`data-rfq-list`/`data-gallery` 齐备；`en/index.html`：`class="nav" id="nav"`/`class="creds"`/`class="foot-in"`/`home-collection` 各 1、旧皮肤标记 0、`<h1>` 恰 1 |
+| 公网验收 | `bash /root/verify-prod-kiln.sh`（KILN 专项，26 条断言） | **PASS=26 FAIL=0**：CSS/JS 资源标记、9 语言首页全套标记（HTTP 200 + nav/creds/foot-in + 旧皮肤 0 + h1=1）、产品列表当前栏目高亮、产品页 `pd-art`/`pd-lead`/询盘篮、联系页 kiln 表单与文件控件、旧 `nav-toggle` 已消失 |
+| 公网目视 | 无头 Chrome 截图（`.runtime/shots/live-home.png`、`live-product.png`） | 首页 8 个版式区块、产品页图廊 5 张缩略图 + 询盘表单 + 询盘篮，**均按 kiln 版式成型** |
+
+**验收脚本自身的一个夹具缺陷（已修，值得记）**：v1 用 `set -o pipefail` + `echo "$大字符串" | grep -q 模式`，
+`grep -q` 命中即退出会让 `echo` 收到 SIGPIPE，管线状态变成 141 ⇒ **文件里明明存在的模式被判成 no**
+（命中位置越靠前越容易触发：`KILN` 在文件头，于是三个"存在性"断言全假红）。
+一律改成文件级 `grep -c -- 模式 文件`，不给管道留机会。**这是"验收脚本假红"这一类问题的通用形态。**
+
+## 9. 上生产后暴露的**内容**缺口（代码与皮肤都没问题，但站还"没做完"）
+
+换肤把版式问题解决了，剩下的观感问题全部来自**内容字段为空**。公网实测证据：
+
+1. **产品图仍是电商详情页截图**：产品页主图带「包邮」「13% 增值税发票 专业定制 破損包赔」角标与品牌丝印
+   —— 这正是本轮重设计已经重建、但**尚未入库**的那 19 张图。工具与映射已就绪（见 §8 与脚本头部 runbook）。
+2. **品牌名是 CMS 默认值**：导航字标、页脚、hero 说明位都是「玄砚·企业智慧营销CMS系统」，
+   而重设计采用的站点字标是 **OPCTOOLS**（域名派生）。`site_settings` / `site_setting_translations` 需人工填。
+3. **首页 hero 是演示种子内容**：标题「你好，标题」、正文「说明文字说明文字…」、配图是**纽约城市天际线**
+   —— 重设计的诊断里就点名了这张风景照，它至今还在线上。
+4. **产品结构化字段全空**：prod 库 `products.min_order_quantity` 有值 **0 行**、`lead_time_days` **0 行**、
+   `product_spec_values` **0 行** ⇒ kiln 的 `.pd-spec`（起订量/交期/包装/定制/样品/应用）与
+   `.spec-table`（规格表）**在所有产品页都不渲染**。⚠️ 这**不是换肤回归**：部署前备份的旧皮肤同一页面
+   同样 grep 不到 `sourcing-facts`（=0），两版都空。这是既有的内容欠账，但换肤后它更显眼
+   （重设计稿里每页都有规格表）。
+5. 市场采购块无卡片（`/api/v1/trade-public/cards` 无数据）、流程步骤无描述文案（本就没有）、
+   联系邮箱是 `655673@qq.com`（非企业域名）。
+
+## 10. 遗留
+
+1. ~~未上生产~~ → **已上生产（2026-10-02 22:00），见 §8**。prod `static-site/` 3053 页已全部是新皮肤。
+   回滚 = `/root/suns-backups/static-site_20261002_215818.tar.gz` 解回 + `_backup_20261002_215728` 的 `.next`。
+2. **19 张重建产品图未入库**（本轮用户只授权了部署）：工具已就绪且默认 dry-run
+   （`node infrastructure/scripts/import-redesign-media.mjs`，含 `--only` 金丝雀与 prod runbook），
+   19/19 slug 已对照公网 sitemap 校验通过。策略：新图升为 `sort_order=0`、老图降为附图、**不删任何资产**。
+   ⚠️ 这是当前"看起来还没做完"的**头号原因**（见 §9 第 1 条）。
 3. **非英语 alt 未翻译**：入库脚本只写英文 alt（设计稿给的就是英文），其余 8 语言由运营在后台补；
    前台在缺失时回退到产品标题。
 4. `apps/web`（Next 预览）共用同一渲染器，**未逐页复核**，其 Tailwind `globals.css` 仍是既有的死文件（旧遗留）。
+5. **品牌与首页内容仍是 CMS 默认/种子值**（见 §9 第 2、3 条）—— 这部分只能由业务侧填，代码侧无动作。
+
