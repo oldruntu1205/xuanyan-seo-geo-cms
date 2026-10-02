@@ -154,6 +154,8 @@ Remove-Item packages/ui/src/kiln.css, packages/ui/src/kiln-extra.css, packages/u
 | 产物切换证据 | 产物级 grep | `site.css`：`KILN` 命中 2、`--ember` 命中 26、旧皮肤 `.site-header` **归零**；`site.js`：`nav-burger`/`data-rfq-list`/`data-gallery` 齐备；`en/index.html`：`class="nav" id="nav"`/`class="creds"`/`class="foot-in"`/`home-collection` 各 1、旧皮肤标记 0、`<h1>` 恰 1 |
 | 公网验收 | `bash /root/verify-prod-kiln.sh`（KILN 专项，26 条断言） | **PASS=26 FAIL=0**：CSS/JS 资源标记、9 语言首页全套标记（HTTP 200 + nav/creds/foot-in + 旧皮肤 0 + h1=1）、产品列表当前栏目高亮、产品页 `pd-art`/`pd-lead`/询盘篮、联系页 kiln 表单与文件控件、旧 `nav-toggle` 已消失 |
 | 公网目视 | 无头 Chrome 截图（`.runtime/shots/live-home.png`、`live-product.png`） | 首页 8 个版式区块、产品页图廊 5 张缩略图 + 询盘表单 + 询盘篮，**均按 kiln 版式成型** |
+| 询盘 API 契约回归 | prod `bash /root/verify-prod-v31.sh`（项目既有脚本，自清理） | **全 PASS**：提交 **201**（`RFQ-20261002-B7737803`）、`preferred_incoterm/specification_notes/target_delivery_on/inquiry_type` 四列落库正确、附件 bytea 与声明大小一致、未登录下载附件 **401**、同 key 幂等（行数 1）、非法 incoterm **400 而非 500**、蜜罐 **200 静默丢弃且建单 0**、测试数据清理干净（inquiries 0 / attachments 0） |
+| 生产页 JS 真实执行 | 无头 Chrome `--dump-dom`（跑完 JS 后的 DOM） | 生产产品页出现 **6 处 `data-ready="1"`**，其中 `<div class="bd" data-rfq-list … data-ready="1">`、`<div class="file-field" data-ready="1">`、`<div data-analytics class="analytics-consent" data-ready="1">` 三处分别证明**询盘篮 / kiln 文件控件 / 统计同意**三个模块已执行；`data-carousel` 在产品页为 0（只有首页有轮播，符合预期）⇒ 新标记下 `site.js` 无报错执行 |
 
 **验收脚本自身的一个夹具缺陷（已修，值得记）**：v1 用 `set -o pipefail` + `echo "$大字符串" | grep -q 模式`，
 `grep -q` 命中即退出会让 `echo` 收到 SIGPIPE，管线状态变成 141 ⇒ **文件里明明存在的模式被判成 no**
