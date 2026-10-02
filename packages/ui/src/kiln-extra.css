@@ -1,0 +1,444 @@
+/* ============================================================
+   KILN-EXTRA — kiln 之外的 CMS 组件层
+   ============================================================
+   公开站（opctools.cloud / 9 语言 / nginx 直出静态页）的版式基座是
+   packages/ui/src/kiln.css（与设计源 04-kiln 逐字一致，只读）。
+   kiln 覆盖了模板站的全部版式区块；SUNS 另有一批模板里不存在的组件——
+   询盘篮、首页轮播、统计同意、客服浮层、市场采购块、站内搜索、分页、
+   语言切换、加询盘反馈——它们不是模板的一部分，所以集中放在本文件，
+   不混进 kiln.css（kiln.css 要保持能与设计源逐行对比）。
+
+   三条纪律：
+   ① 只用 kiln 的变量（--char/--char-2/--char-3/--ember/--glow/--kiln/--ash/
+      --hair/--hair-2/--hair-line/--muted/--ink/--sans/--mono/--pad/--ease/--nav-h）
+      与 kiln 自己的字面量（rgba(239,231,221,x) / rgba(255,201,120,x) /
+      rgba(217,114,47,x)）。不引入新调色板、不用亮底、不用圆角、不用 SaaS 式大投影。
+   ② 不重复 kiln 已定义的类。下面每组注释都写明「XX 由 kiln 承担，不重写」。
+   ③ 本文件必须在 kiln.css 之后加载：有 4 处与 kiln 同权重、靠顺序取胜
+      （.pager / .nav-cta .nav-search / .hero--banner h2 / .home-product-image）。
+
+   z-index 刻度（kiln 的 .nav 是 60，浮层只能排在 60 之上；用有序刻度，不用 99999）：
+     60 nav（kiln） < 70 客服浮层 < 72 统计同意条（先回答它，它压住浮层） < 80 跳转链接（键盘优先）
+   ============================================================ */
+
+/* ---------- 0. 正确性修复：hidden 属性必须赢过 kiln 的 display ----------
+   kiln 的 .card{display:flex} 会盖掉浏览器默认的 [hidden]{display:none}，
+   而首页过滤是「card.hidden=true」（rfq-browser.ts 的 [data-home-filter]），
+   不加这条，过滤只会改变 aria-pressed 而不隐藏任何产品卡。 */
+.card[hidden],.home-product[hidden]{display:none!important}
+
+/* ============================================================
+   A. 外壳与导航附加件
+   （.nav/.nav-in/.brand/.nav-links/.nav-cta/.nav-burger/.nav-drawer 的基础样式由 kiln 承担）
+   ============================================================ */
+
+/* 跳到主内容：默认屏外，键盘聚焦时出现在左上、压在 nav 之上（z 80 > nav 60） */
+.skip-link{
+  position:absolute; left:var(--pad); top:-4.5rem; z-index:80;
+  padding:.72rem 1.15rem;
+  background:var(--char-2); border:1px solid var(--hair);
+  font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ash);
+  transition:top .25s var(--ease);
+}
+.skip-link:focus{top:.7rem}
+
+/* 语言切换：nav-cta 里的 <details>，要做成与 .nav-cta .btn 同尺寸的一枚克制按钮；
+   展开的清单暗底细线。summary 的原生三角标记要手工去掉。 */
+.language{position:relative}
+.language summary{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.62rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--muted); border:1px solid var(--hair); cursor:pointer; list-style:none;
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.language summary::-webkit-details-marker{display:none}
+.language summary::after{
+  content:""; width:4px; height:4px;
+  border-right:1px solid currentColor; border-bottom:1px solid currentColor;
+  transform:translateY(-1px) rotate(45deg); transition:transform .3s var(--ease);
+}
+.language summary:hover,.language[open] summary{color:var(--ash); border-color:rgba(239,231,221,.42)}
+.language[open] summary::after{transform:translateY(1px) rotate(-135deg)}
+.language ul{
+  position:absolute; right:0; top:calc(100% + .5rem); z-index:1;
+  min-width:7rem; margin:0; padding:.3rem 0; list-style:none;
+  background:var(--char-2); border:1px solid var(--hair);
+}
+.language li>a{
+  display:block; padding:.55rem 1.05rem; font-size:.66rem; letter-spacing:.2em; color:var(--muted);
+  transition:color .3s var(--ease), background .3s var(--ease);
+}
+.language li>a:hover,.language li>a[aria-current="true"]{color:var(--glow); background:var(--char-3)}
+
+/* 「⌕」按钮：单个象形符号不要字母间距，字形本身放大一点才看得清；尺寸与边框由
+   kiln 的 .nav-cta .btn 提供。
+   窄屏隐藏同样由 kiln 承担——.nav-cta .btn:not(.btn-ember){display:none} 在 ≤1120px
+   就把 .nav-search 与 .nav-contact 一起收掉了（比清单里的 880 更早），故此处不写隐藏规则。 */
+.nav-cta .nav-search{font-size:.95rem; letter-spacing:0; line-height:1}
+
+/* 询盘数量角标：嵌在 .btn-ember（橙色渐变）里，用炭底 + 亮边反衬；
+   下面给了 display:inline-grid，所以 [hidden] 必须显式关掉。 */
+.rfq-count{
+  display:inline-grid; place-items:center;
+  min-width:1.3rem; height:1.3rem; padding:0 .32rem;
+  font-size:.62rem; letter-spacing:0; line-height:1; font-variant-numeric:tabular-nums;
+  background:var(--char); color:var(--glow); border:1px solid rgba(255,201,120,.45);
+}
+.rfq-count[hidden]{display:none}
+
+/* 抽屉里的二级菜单项：缩进 + 更弱的前景色（一级项沿用 kiln 的 .76rem 大写）。
+   缩进放在嵌套 <ul> 上——kiln 的 .nav-drawer ul 给每层都加了 var(--pad)，不覆盖会越缩越深。 */
+.nav-drawer li.sub>ul{padding:.2rem 0 .4rem 1.1rem}
+.nav-drawer li.sub>a{font-size:.7rem; letter-spacing:.18em; color:var(--muted)}
+.nav-drawer li.sub>a:hover{color:var(--ash)}
+
+/* 客服浮层：browser.ts 的 service() 会重建里面的 <a>/<p>。暗底细线，克制外观；
+   展开的面板最大高度受控、超出可滚（html 已 color-scheme:dark，滚动条天然是暗的）。 */
+.service-widget{position:fixed; right:clamp(12px,1.6vw,22px); bottom:clamp(12px,1.6vw,1.4rem); z-index:70}
+.service-widget[hidden]{display:none}
+.service-widget summary{
+  display:inline-flex; align-items:center; gap:.5rem; cursor:pointer; list-style:none;
+  padding:.72rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--ash); background:var(--char-2); border:1px solid var(--hair);
+  box-shadow:0 16px 34px -20px rgba(0,0,0,.85); /* 只为与页面内容分开，不是 SaaS 投影 */
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.service-widget summary::-webkit-details-marker{display:none}
+.service-widget summary:hover,.service-widget[open] summary{color:var(--glow); border-color:rgba(255,201,120,.45)}
+.service-widget>div{
+  position:absolute; right:0; bottom:calc(100% + .6rem);
+  width:min(19rem,calc(100vw - (var(--pad)*2))); max-height:min(60vh,22rem); overflow-y:auto;
+  padding:1rem 1.15rem; background:var(--char-2); border:1px solid var(--hair);
+}
+.service-widget a{display:block; padding:.6rem 0; font-size:.84rem; color:var(--ink); border-bottom:1px solid var(--hair-2); transition:color .3s var(--ease)}
+.service-widget a:last-of-type{border-bottom:0}
+.service-widget a:hover{color:var(--glow)}
+.service-widget p{margin-top:.55rem; font-size:.76rem; color:var(--muted)}
+
+/* 底部统计同意条：fixed 底栏 + 暗底 + 顶部一道发光细线（沿用 kiln .hero::after 的窑缝线）；
+   两个按钮一主一次，主按钮直接复用 kiln .btn-ember 的渐变与暖光。
+   下面给了 display:flex，所以 [hidden] 必须显式关掉。 */
+.analytics-consent{
+  position:fixed; left:0; right:0; bottom:0; z-index:72;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.8rem 1.4rem;
+  padding:1rem var(--pad);
+  background:rgba(20,16,14,.96);
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+}
+.analytics-consent::before{
+  content:""; position:absolute; inset:0 0 auto 0; height:1px;
+  background:linear-gradient(90deg, transparent, rgba(217,114,47,.5), transparent);
+}
+.analytics-consent[hidden]{display:none}
+.analytics-consent p{font-size:.84rem; color:var(--ink); max-width:54ch}
+.analytics-consent button{
+  padding:.62rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  border:1px solid var(--hair); color:var(--muted);
+  transition:color .3s var(--ease), border-color .3s var(--ease), background .3s var(--ease);
+}
+.analytics-consent button:hover{color:var(--ash); border-color:rgba(239,231,221,.42)}
+.analytics-consent button[data-analytics-choice="yes"]{
+  background:linear-gradient(120deg,#E07C33,#C2601F); border-color:transparent; color:#1A120C;
+  box-shadow:0 14px 34px -16px rgba(217,114,47,.9);
+}
+.analytics-consent button[data-analytics-choice="yes"]:hover{background:linear-gradient(120deg,#F08A3A,#D06A24)}
+/* 同意条钉在底部时，右下角的客服浮层会被它压住（72 > 70），所以让浮层上移让位。
+   两者都是 <body> 的子元素，用相邻兄弟选择器即可，不必依赖 :has()；
+   9 语言文案长短不一，9rem 是按两行文案留的余量。 */
+.analytics-consent:not([hidden])~.service-widget{bottom:9rem}
+
+/* 反垃圾蜜罐 label：必须视觉上完全不可见，但仍能被脚本/表单读到 ——
+   不能用 display:none（部分机器人会跳过 display:none 的字段，蜜罐即失效），
+   改用绝对定位移出视口 + 1px 尺寸。 */
+.trap{position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden}
+
+/* 页脚「统计偏好」是 <button>（trade-public.ts 用它呼出同意条），要长得像链接。
+   细线、字距、大写由 kiln 的 .tlink 提供（它作为类选择器赢过 button{border:0}），
+   这里只补两点：不换行，以及与同排文字按基线对齐（默认 stretch 会把它的细线下沿拉到整行底部）。 */
+.foot-base .tlink{align-self:baseline; white-space:nowrap}
+
+/* ============================================================
+   B. 首页 hero 轮播
+   （kiln 的 hero 是静态的；每张 slide 内部就是 .wrap.hero-in，仍是 kiln 的两列布局）
+   ============================================================ */
+
+/* 隐藏用 [hidden]（browser.ts 的 carousel() 只切 hidden）。显式写 display:block，
+   是为了不再让 .slide 依赖任何旧的 display 声明。 */
+.hero .slide{display:block}
+.hero .slide[hidden]{display:none}
+
+/* 轮播里第一张标题是 h1、其余是 h2（每页只能有一个 h1）。kiln 只写了 .hero h1，
+   第二张之后的标题会掉回浏览器默认字号——这里让它们与首张完全等价。 */
+.hero .slide h2{
+  font-size:clamp(2.1rem,4.9vw,4.3rem); font-weight:300; line-height:1.12;
+  letter-spacing:.005em; margin-block:1rem 1.5rem;
+}
+
+/* CMS 的 hero_banner 块：单张、无轮播控件，标题是 h2。
+   kiln 的 .hero h1 覆盖不到它，而 .h-sec 的 2.9rem 上限在内页里偏小——
+   按 kiln .page-head h1 的尺度给它一个 hero 级标题。 */
+.hero--banner h2{
+  font-size:clamp(1.9rem,4.4vw,3.4rem); font-weight:300; line-height:1.14;
+  letter-spacing:.005em; margin-block:1rem 1.4rem;
+}
+
+/* 图片下方的说明小字：这是测试断言的类名（render.test.ts），
+   效果照抄 kiln 的 .hero-stamp，但不用那个名字。 */
+.hero-caption{
+  position:absolute; z-index:3; left:0; bottom:2%;
+  font-size:.62rem; letter-spacing:.26em; text-transform:uppercase;
+  color:rgba(239,231,221,.4);
+}
+/* 与 kiln 的 .hero-stamp 同样在 ≤880px 收掉：单列时图上的小字只是噪点，
+   而且它的文案（副标题 / 站点名）与上方 .hero-copy 的眉标本来就重复。 */
+@media (max-width:880px){
+  .hero-caption{display:none}
+}
+
+/* 轮播底部一行：左站点名/栏目说明，右「← 01 / 02 Ⅱ →」控件 */
+.hero-foot{
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.8rem 1.2rem;
+  padding-block:1.2rem; border-top:1px solid var(--hair-2);
+}
+.hero-note{
+  font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.4);
+}
+.hero-controls{display:flex; align-items:center; gap:.5rem; font-size:.68rem; color:rgba(239,231,221,.55)}
+.hero-controls button{
+  display:grid; place-items:center; width:2.35rem; height:2.35rem; line-height:1;
+  border:1px solid var(--hair); color:var(--muted); background:none;
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.hero-controls button:hover{color:var(--glow); border-color:rgba(255,201,120,.55)}
+.hero-controls [data-slide-count]{
+  min-width:4.6rem; text-align:center;
+  font-size:.66rem; letter-spacing:.2em; font-variant-numeric:tabular-nums;
+  color:rgba(239,231,221,.45);
+}
+/* hero-acts 里的次要动作（.tlink）与 .btn-ember 同排：默认 stretch 会把它拉满行高，
+   下划线就跑到按钮底边去了，这里让它按自身高度垂直居中。 */
+.hero-acts .tlink{align-self:center}
+
+/* ============================================================
+   C. 首页产品区
+   （.home-collection 只是版式容器：纵向节奏与宽度由 kiln 的 .section/.wrap 承担，不重写）
+   ============================================================ */
+
+/* .home-product-image 是测试断言的类名：.card 里的图片锚点，没有 card-art 类，
+   所以视觉等价于 kiln 的 .card-art 的这套要自己写（1:1 容器、居中、裁切、柔光、hover 轻微上移）。
+   .grid > * 的 1px 外环由 kiln 负责，不重复。 */
+.home-product-image{position:relative; aspect-ratio:1/1; display:grid; place-items:center; overflow:hidden}
+.home-product-image::before{
+  content:""; position:absolute; inset:16%;
+  background:radial-gradient(circle at 50% 56%, rgba(255,201,120,.2), rgba(217,114,47,.06) 44%, transparent 68%);
+  opacity:.55; transition:opacity .5s var(--ease);
+}
+.card:hover .home-product-image::before{opacity:1}
+/* 渲染器给的是 <picture><source…><img></picture>，比 kiln 模板里的裸 <img> 多一层。
+   让 picture 铺满容器并居中，图片的 66% 才是相对容器、才真居中。 */
+.home-product-image picture{display:grid; place-items:center; width:100%; height:100%}
+.home-product-image img{
+  position:relative; z-index:2; width:66%;
+  transition:transform .55s var(--ease);
+  filter:drop-shadow(0 0 1.2px rgba(255,201,120,.4)) drop-shadow(0 14px 24px rgba(0,0,0,.7));
+}
+.card:hover .home-product-image img{transform:translateY(-6px)}
+/* 没有图的产品卡给的是 kiln 的 .plot 空框（渲染器不加 .card--plot），
+   此时把卡片自己的柔光关掉——与 kiln 的 .card--plot .card-art::before{display:none} 同一个理由。 */
+.home-product-image:has(.plot)::before{display:none}
+
+/* 整卡可点（图片与标题两个 <a>），标题链接不出现下划线，hover 才亮起来 */
+.home-product .card-body h3 a{text-decoration:none; transition:color .3s var(--ease)}
+.home-product .card-body h3 a:hover{color:var(--glow)}
+
+/* 首页按应用过滤：视觉沿用 kiln 的 .filters（含 aria-pressed="true" 的高亮）。
+   这里只补窄屏边界——kiln 在 ≤640 会让按钮 flex:1 1 auto 折成三行，
+   首页最多 6 个过滤项，改成单行横向滚动更好读；滚动条沿用 kiln .table-wrap 的细线样式。 */
+@media (max-width:640px){
+  .filters.home-filters{
+    flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    padding-bottom:.2rem; scrollbar-width:thin; scrollbar-color:rgba(239,231,221,.25) transparent;
+  }
+  .filters.home-filters::-webkit-scrollbar{height:6px}
+  .filters.home-filters::-webkit-scrollbar-thumb{background:rgba(239,231,221,.22)}
+  .filters.home-filters::-webkit-scrollbar-track{background:transparent}
+  .filters.home-filters button{flex:0 0 auto; white-space:nowrap}
+}
+
+/* ============================================================
+   D. 产品详情页附加件
+   （.pd/.pd-art/.thumbs 的边框暗底、.chips span、.pd-spec li 由 kiln 承担，不重写）
+   ============================================================ */
+
+/* 产品没有图片时渲染器给的是 <div class="pd-art"><span class="plot">，
+   并没有 kiln 的 .pd-art--plot 修饰类，所以在这里把那条规则的尺寸补上。 */
+.pd-art .plot{width:56%}
+
+/* kiln 已给 .thumbs button 的暗底细线与 [aria-pressed="true"] 的 ember 选中态；
+   这里只加一层亮度区分——暗底上单靠 1px 边框分辨 6 张缩略图太吃力。 */
+.thumbs button img{opacity:.62; transition:opacity .3s var(--ease)}
+.thumbs button:hover img,.thumbs button[aria-pressed="true"] img{opacity:1}
+
+/* 「已加入询盘清单」：紧跟在 .btn-row.product-actions 之后的行内状态，
+   空着时也占一行高，避免点击时页面跳动（旧皮肤的成功色是绿色，这里换成窑火亮色）。 */
+.rfq-feedback{
+  display:block; min-height:1.4em; margin-top:.9rem;
+  font-size:.72rem; letter-spacing:.16em; text-transform:uppercase; color:var(--glow);
+}
+
+/* ============================================================
+   E. 询盘篮（.inquiry-list .bd 的内容由 rfq-browser.ts 的 paint() 重建）
+   静态 HTML 里有同名的 h3（.bd > h3），与 JS 生成的标题必须长得一样，所以选择器按子元素写。
+   （.inquiry-list / .bd 的外框与内距由 kiln 承担；.rfq-empty 也被 kiln 的
+   .inquiry-list .bd p 覆盖，尺寸与颜色相同，不重写。）
+   ============================================================ */
+
+/* 视觉等价于 kiln 的 .inquiry-list .hd（小型大写眉标 + 一道细线），
+   只是它长在 .bd 里，细线只能落在内容宽度上。 */
+.inquiry-list .bd>h3{
+  margin:0 0 1.1rem; padding-bottom:.75rem;
+  border-bottom:1px solid var(--hair-2);
+  font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; font-weight:400;
+  color:rgba(239,231,221,.42);
+}
+.inquiry-list ul{list-style:none; margin:0; padding:0}
+.inquiry-list li{
+  display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:.5rem .9rem; align-items:center;
+  padding:.85rem 0;
+}
+.inquiry-list li+li{border-top:1px solid var(--hair-2)}
+.inquiry-list li a{
+  font-size:.92rem; line-height:1.4; color:var(--ink); overflow-wrap:anywhere;
+  border-bottom:1px solid transparent; transition:color .3s var(--ease);
+}
+.inquiry-list li a:hover{color:var(--glow)}
+.inquiry-list label{
+  display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap;
+  font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; color:rgba(239,231,221,.42);
+}
+.inquiry-list input[type="number"]{
+  width:4.6rem; padding:.42rem .5rem; text-align:right;
+  font:inherit; font-size:.82rem; color:var(--ash);
+  background:var(--char); border:1px solid var(--hair); border-radius:0;
+  transition:border-color .3s var(--ease);
+}
+.inquiry-list input[type="number"]:focus{outline:none; border-color:rgba(255,201,120,.5)}
+/* 移除按钮：像文字链接那样，靠细线与字距表达，hover 才亮 */
+.inquiry-list button[data-rfq-remove]{
+  justify-self:end; padding:0 0 .2rem;
+  font-size:.62rem; letter-spacing:.18em; text-transform:uppercase;
+  color:rgba(239,231,221,.45); border-bottom:1px solid var(--hair);
+  transition:color .3s var(--ease), border-color .3s var(--ease);
+}
+.inquiry-list button[data-rfq-remove]:hover{color:var(--glow); border-bottom-color:rgba(255,201,120,.55)}
+
+@media (max-width:640px){
+  .inquiry-list li{grid-template-columns:minmax(0,1fr) auto; row-gap:.6rem}
+  .inquiry-list li a{grid-column:1/-1}
+}
+
+/* ============================================================
+   F. 表单状态
+   （.form/.field/.file-field/.check 由 kiln 承担，不重写）
+   ============================================================ */
+
+/* 提交结果/错误文案：注意这不是 kiln 的 .form-status（那个由 data-shown 控制显隐）。
+   rfq-browser.ts 只往这个 <p> 里写 textContent，成功与失败共用一行，所以只有一种颜色；
+   空着时也留一行高，避免提交瞬间页面跳动。 */
+.form-result{min-height:1.5em; margin-top:.9rem; font-size:.82rem; color:var(--glow)}
+
+/* ============================================================
+   G. 市场与采购块（[data-trade-public]；卡片由 trade-public.ts 重建）
+   左列文案 + select + .trade-entry 在 .split 里，右列是 .trade-public-grid。
+   （左侧的 select 用的是 .field，由 kiln 承担。）
+   ============================================================ */
+
+/* 旧皮肤是浅绿底 + 白卡（#edf0e4 / #214c3d / #bdcdb6），在 kiln 里整体换成
+   暗底 + 1px --hair 细线：small 用 --ember 小型大写，链接用 --glow 下划线。 */
+.trade-public-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem}
+.trade-public-grid article{
+  display:flex; flex-direction:column; gap:.6rem;
+  padding:1.15rem 1.2rem 1.3rem;
+  background:var(--char-2); border:1px solid var(--hair);
+  transition:background .45s var(--ease);
+}
+.trade-public-grid article:hover{background:var(--char-3)}
+.trade-public-grid article small{
+  font-size:.6rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember);
+}
+.trade-public-grid article h3{font-size:1rem; letter-spacing:.005em; line-height:1.35; color:var(--ash)}
+.trade-public-grid article p{
+  font-size:.86rem; color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere;
+}
+.trade-public-grid article a{
+  align-self:flex-start; margin-top:auto; padding-bottom:.3rem;
+  font-size:.66rem; letter-spacing:.18em; text-transform:uppercase; color:var(--glow);
+  border-bottom:1px solid rgba(255,201,120,.4);
+  transition:border-color .3s var(--ease);
+}
+.trade-public-grid article a:hover{border-bottom-color:var(--glow)}
+.trade-public-grid .trade-expiry{
+  font-size:.62rem; letter-spacing:.14em; color:rgba(239,231,221,.34); white-space:normal;
+}
+
+/* 两个 .tlink（客户专属入口 / 申请渠道合作）的横排 */
+.trade-entry{display:flex; flex-wrap:wrap; gap:.8rem 1.6rem; margin-top:1.6rem}
+/* 空态 / 加载失败 / 加载中的纯文本（data-empty / data-error 由 JS 写入） */
+.trade-section [role="status"]{margin-top:1.4rem; font-size:.84rem; letter-spacing:.02em; color:var(--muted)}
+
+@media (max-width:880px){
+  .trade-public-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .trade-public-grid{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ============================================================
+   H. 站内搜索
+   （表单本身用的是 kiln 的 .form：间距由 .form{gap} 与 .sec-head{margin-bottom} 给出，
+   无需再补；这里只写结果列。）
+   ============================================================ */
+
+/* 结果由 browser.ts 塞成 <article><h3><a>…</a></h3><p>…</p></article>；
+   空态与「Searching…」是直接写在容器里的纯文本，所以颜色/字号落在容器上。 */
+.search-results{font-size:.86rem; color:var(--muted)}
+.search-results article{padding:1.15rem 0; border-bottom:1px solid var(--hair-2)}
+.search-results article:first-child{padding-top:0}
+.search-results article:last-child{border-bottom:0}
+.search-results h3{font-size:1rem; letter-spacing:.005em; line-height:1.35}
+.search-results h3 a{color:var(--ash); transition:color .3s var(--ease)}
+.search-results h3 a:hover{color:var(--glow)}
+.search-results p{margin-top:.4rem; font-size:.87rem; color:var(--muted); max-width:64ch}
+
+/* ============================================================
+   I. 其它
+   （.pager a 的细线/hover、.rows--plain .row 的两个网格列均由 kiln 承担，不重写）
+   ============================================================ */
+
+/* CMS 的翻页只有两个 <a rel="prev|next">（上一页 / 下一页），不是 kiln 模板里的编号页码：
+   两端对齐，各自的边贴住容器。 */
+.pager{justify-content:space-between}
+
+/* 与 kiln 的全局降级保持一致：柔光的位移也一并关掉（kiln 只写了 .card-art 那一处）。 */
+@media (prefers-reduced-motion:reduce){
+  .card:hover .home-product-image img{transform:none}
+}
+
+/* ============================================================
+   J. 渲染器补偿：<picture> 包装层
+   ============================================================
+   kiln.css 是照裸 <img> 写的（典型是 .card-art img{width:66%}），而 CMS 渲染器输出
+   <picture><source…><img></picture>——多档 avif/webp 的来源就在这里，不能去掉包装。
+   多出来的 picture 盒子会顶替 img 成为「网格项」：.card-art 是 place-items:center 的网格，
+   网格项宽度 auto 时按 max-content 计算，而子图是百分比宽（相对 picture 自身）→ 无法解析，
+   浏览器回退到图片固有宽度（900px）再被 overflow:hidden 裁掉，表现为卡片里的产品被放大裁切。
+   display:contents 让 picture 退出盒模型，img 重新成为直接子项，kiln 的居中与 66% 宽原样生效。
+   （.home-product-image 在 C 节用 grid 铺满 picture 处理，效果等同，此处不重复。） */
+.card-art picture,.hero-art picture,.pd-art picture,.thumbs picture,
+.prose figure picture,.table-wrap picture{display:contents}
+
+/* CMS 的首页 hero 用的是 16:9 摄影图，不是模板里 480×680 的竖构图抠图产品照。
+   kiln 给 .hero-art 定的 1/1 会让横图上下空出一大块（图按 object-fit:contain 居中），
+   这里按实际素材的比例放宽到 16/10；换回竖构图素材时删掉这一条即可。 */
+.hero-art{aspect-ratio:16/10}
+

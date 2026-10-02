@@ -1,3 +1,5 @@
+/* 已弃用（2026-10-02 kiln 换肤）：本文件不再被 styles.ts 引用，改这里不会影响任何页面。
+   市场与采购块的现行样式在 kiln-extra.css 的 G 节（已换成 kiln 的暗暖色板）。 */
 export const tradeCSS=String.raw`
 /* V3.1 sourcing flow. Shared by dynamic preview and generated HTML. */
 .home-page .collection-case_studies{background:#f2f3ec;border-top:1px solid #d7dfd4}

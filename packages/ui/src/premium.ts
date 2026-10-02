@@ -1,4 +1,7 @@
 /** Warm ivory and forest glass theme. Shared by live preview and static publishing. */
+/* 已弃用（2026-10-02 kiln 换肤）：本文件不再被 styles.ts 引用，改这里不会影响任何页面。
+   现行样式表 = kiln.css（设计系统）+ kiln-extra.css（CMS 组件层），由 scripts/build-css.mjs 合成 styles.ts。
+   保留原因：换肤前的主题记录，便于回滚比对；见 docs/FRONTEND-RESKIN-KILN.md。 */
 export const premiumCSS=String.raw`
 :root{--ink:#213d35;--ink-soft:#40564f;--paper:#fbfaf6;--surface:#f0efe8;--surface-2:#e9eee7;--line:#d9ded4;--brand:#234a3c;--brand-700:#234a3c;--brand-900:#193b31;--accent:#d9e4bb;--accent-600:#c5d59f;--accent-ink:#466035;--accent-tint:#eef1e5;--muted:#657268;--radius:2px;--shadow-sm:none;--shadow:0 18px 48px #213d3510;--wrap:1480px;--pad:6%}
 body{font-family:'Trebuchet MS','Microsoft YaHei','PingFang SC',sans-serif;font-size:15px;background:var(--paper)}
