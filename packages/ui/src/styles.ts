@@ -1000,7 +1000,7 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 }
 `;
 
-/* ── kiln-extra.css · 25475 bytes ── kiln 之外的 CMS 组件层（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
+/* ── kiln-extra.css · 27249 bytes ── kiln 之外的 CMS 组件层（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
 export const kilnExtraCSS = `/* ============================================================
    KILN-EXTRA — kiln 之外的 CMS 组件层
    ============================================================
@@ -1238,8 +1238,11 @@ export const kilnExtraCSS = `/* ================================================
 }
 .card:hover .home-product-image::before{opacity:1}
 /* 渲染器给的是 <picture><source…><img></picture>，比 kiln 模板里的裸 <img> 多一层。
-   让 picture 铺满容器并居中，图片的 66% 才是相对容器、才真居中。 */
-.home-product-image picture{display:grid; place-items:center; width:100%; height:100%}
+   这里用 display:contents 让 picture 退出盒模型（曾用「picture 铺满并居中」的写法，
+   但那样 picture 自己成了一个嵌套 grid，它内部的 auto 轨道又会按图片固有宽撑开，
+   实测把 66% 解析成 1200×0.66=792 → 同样是放大裁切；0b 节的轨道修复也管不到嵌套层）。
+   统一交给 0b 节钉住的 .home-product-image 轨道即可。 */
+.home-product-image picture{display:contents}
 .home-product-image img{
   position:relative; z-index:2; width:66%;
   transition:transform .55s var(--ease);
@@ -1439,6 +1442,22 @@ export const kilnExtraCSS = `/* ================================================
    （.home-product-image 在 C 节用 grid 铺满 picture 处理，效果等同，此处不重复。） */
 .card-art picture,.hero-art picture,.pd-art picture,.thumbs picture,
 .prose figure picture,.table-wrap picture{display:contents}
+
+/* ---------- 0b. 正确性修复：把卡片图的「基准」拉回容器（四处同源）
+   症状（生产实测，2026-10-02）：产品列表/首页的卡片图被放大约 2.4 倍并裁掉四边内容，
+   电商摄影截图上尤其明显（文字、角标被切）。
+   根因不是 <picture>，而是**网格轨道**：kiln 这些容器都写成
+   \`aspect-ratio + display:grid + place-items:center\`，却**没有声明列/行** —— 那一条 auto 轨道
+   由内容的 max-content 决定：图片固有宽 800（或 1200）把轨道撑成那么大，于是 \`img{width:66%}\`
+   解析成「轨道宽的 66%」= 528（实测），而卡片本体只有 430，超出部分被 overflow:hidden 裁掉。
+   kiln 原版之所以看起来正常：它的素材是「透明底 + 产品居中」的抠图，放大裁切后主体仍在；
+   换成满幅摄影素材就会切掉内容。修法是把轨道钉在容器上（minmax(0,1fr)），
+   不动 66%/72% 这些观感参数 —— 修完百分比解析的是容器宽，图片完整落在格子里。
+   实测：修复前 .home-product-image 图 792（容器 430）、.card-art 图 528；修复后一律 284 = 430×0.66。 */
+.card-art,.home-product-image,.pd-art,.thumbs button{grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr)}
+
+/* 产品页图廊的主图与缩略图：同样受上面那条约束，且 .pd-art img 用的是 72% 而非 66%。 */
+.pd-art img,.thumbs button img{max-width:100%; max-height:100%}
 
 /* CMS 的首页 hero 用的是 16:9 摄影图，不是模板里 480×680 的竖构图抠图产品照。
    kiln 给 .hero-art 定的 1/1 会让横图上下空出一大块（图按 object-fit:contain 居中），
