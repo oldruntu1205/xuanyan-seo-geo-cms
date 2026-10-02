@@ -124,17 +124,32 @@ try{
  ok('D7：client 重算陌生询盘 404');
  await assert.rejects(()=>setInquiryIntentOverrideForActor(client,id,'hot'),error=>error instanceof DomainError&&error.status===404,'client 覆盖陌生询盘必须 404');
  ok('D7：client 写陌生询盘覆盖 404');
- // 只有 leads.read、没有 leads.write 的角色：写入口必须是 403（权限门），读入口对陌生询盘仍是 404
+ // 只有 leads.read、没有 leads.write 的角色：**用户 2026-10-02 决定** —— client 可「自助重算」自己可见的询盘
+ // （重算是确定性纯函数落库、只写自己 scope 内询盘的机器三列），但**人工覆盖仍要求 leads.write**。
  const readOnly={id:randomUUID(),email:`verify-intent-reader-${stamp}@example.com`,role:'client',permissions:['leads.read'],displayName:'Verify reader'};
  await ensureActor(readOnly);
- await assert.rejects(()=>recomputeInquiryIntentForActor(readOnly,id),error=>error instanceof DomainError&&error.status===403,'无 leads.write 的重算必须 403');
- ok('D7：无写权限的重算 403');
+ await assert.rejects(()=>inquiryIntent(readOnly,id),error=>error instanceof DomainError&&error.status===404,'无写权限的 client 读陌生询盘仍必须 404');
+ ok('D7：leads.read 的 client 读陌生询盘 404');
+ await assert.rejects(()=>recomputeInquiryIntentForActor(readOnly,id),error=>error instanceof DomainError&&error.status===404,'自助重算也不得越过 lead scope');
+ ok('D7：自助重算仍不得越过 lead scope（陌生询盘 404）');
  // client 自己的询盘（邮箱匹配，且大小写不同）必须可读
  const own=await query("INSERT INTO inquiries(inquiry_number,inquiry_type,name,email,message,status,locale_id) VALUES($1,'contact','Verify client',$2,'my own inquiry','new',$3) RETURNING id",['VERIFY-INTENT-OWN-'+stamp,client.email.toUpperCase(),locale]);
  await query("INSERT INTO inquiries(inquiry_number,inquiry_type,name,email,message,status,locale_id) VALUES($1,'contact','x',$2,'y','new',$3)",['VERIFY-INTENT-OWNFIX-'+stamp,client.email,locale]);
- const ownRecord=await inquiryIntent(client,String(own[0].id));
+ const ownId=String(own[0].id);
+ const ownRecord=await inquiryIntent(client,ownId);
  assert.equal(ownRecord.effectiveLevel,null,'未评分时最终等级必须是 null（“未评分”不落库）');
  ok('D7：client 读自己的询盘成功，未评分时 effectiveLevel=null');
+ const readerOwn=await query("INSERT INTO inquiries(inquiry_number,inquiry_type,name,email,message,status,locale_id) VALUES($1,'contact','Verify reader',$2,'reader own inquiry','new',$3) RETURNING id",['VERIFY-INTENT-READEROWN-'+stamp,readOnly.email.toUpperCase(),locale]);
+ const readerOwnId=String(readerOwn[0].id);
+ const ownSignals=(await inquiryIntentSignals(readOnly,readerOwnId)).signals;
+ const ownScored=await recomputeInquiryIntentForActor(readOnly,readerOwnId,'2026-10-07T00:00:00.000Z');
+ assert.equal(ownScored.intentScore,scoreInquiryIntent(ownSignals).score,'自助重算结果必须与纯函数一致');
+ const ownPersisted=(await pgInquiryIntentRepository().get(readerOwnId))!;
+ assert.equal(ownPersisted.intentScore,scoreInquiryIntent(ownSignals).score,'自助重算必须真的落库');
+ assert.equal(ownPersisted.intentScoredAt,'2026-10-07T00:00:00.000Z');
+ ok('D7：leads.read 的 client 可自助重算自己的询盘（分数 '+ownPersisted.intentScore+'/'+ownPersisted.intentLevel+'）');
+ await assert.rejects(()=>setInquiryIntentOverrideForActor(readOnly,readerOwnId,'hot'),error=>error instanceof DomainError&&error.status===403,'人工覆盖仍需 leads.write');
+ ok('D7：人工覆盖仍要求 leads.write（client 403）');
 
  // ⑨ 仓储层只写机器三列（pg 实现的语句级证据：override 三列不在 UPDATE 里）
  await query("UPDATE inquiries SET intent_override_level='hot',intent_override_by=$2,intent_override_at=now() WHERE id=$1",[id,admin.id]);

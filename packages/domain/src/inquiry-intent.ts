@@ -240,9 +240,13 @@ export async function inquiryIntent(actor:Actor,inquiryId:string){
   return {...record,effectiveLevel:resolveEffectiveIntentLevel(record.intentLevel,record.intentOverrideLevel)};
 }
 
-/** 手动重算（SPEC §10：唯一的触发方式）；`at` 由调用方给服务端时间。 */
+/** 手动重算（SPEC §10：唯一的触发方式）；`at` 由调用方给服务端时间。
+ * ⚠️ 2026-10-02 **用户决定**：client 也要能「自助重算」——所以门槛是**读**权限（`leads.read`）+ `lead-scope`，
+ * 而不是写权限。理由：重算是确定性的纯函数落库、只写**自己可见**询盘的机器三列，不产生新的业务判断。
+ * 人工覆盖（override）**仍然要求 `leads.write`** —— 那是销售侧的判断，未随本次放宽。
+ */
 export async function recomputeInquiryIntentForActor(actor:Actor,inquiryId:string,at=new Date().toISOString()){
-  intentAccess(actor,true);
+  intentAccess(actor,false);
   const {signals}=await inquiryIntentSignals(actor,inquiryId);
   const record=await recomputeInquiryIntent({inquiryId,repository:pgInquiryIntentRepository(),signals,scoredAt:at});
   return {...record,effectiveLevel:resolveEffectiveIntentLevel(record.intentLevel,record.intentOverrideLevel)};
