@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {renderHTML} from '@suns/ui';
-import {DomainError,seoReview,publishPreview,rollbackPublished,translationTerms,saveTranslationTerm,removeTranslationTerm,translationMemories,translationComparison,approveTranslationBatch,importKeywords,keywordOverview,competitorPages,inspectCompetitor,competitorHistory,geoPrompts,saveGeoPrompt,sampleGeoPrompt,inquiryWorkspace,updateInquiry,assistantContext,assistantHistory,suggestWithAssistant,aiWritingHistory,type Actor} from '@suns/domain';
+import {DomainError,seoReview,publishPreview,rollbackPublished,translationTerms,saveTranslationTerm,removeTranslationTerm,translationMemories,translationComparison,approveTranslationBatch,importKeywords,keywordOverview,competitorPages,inspectCompetitor,competitorHistory,geoPrompts,saveGeoPrompt,sampleGeoPrompt,inquiryWorkspace,updateInquiry,assistantContext,assistantHistory,suggestWithAssistant,aiWritingHistory,inquiryIntent,recomputeInquiryIntentForActor,setInquiryIntentOverrideForActor,type Actor} from '@suns/domain';
 import {v21Api} from './v21-api';
 import {agentContext,agentRuns,agentRun,createAgentRun,decideAgentRun} from '@suns/domain';
 import {geoMonitorWorkspace,saveGeoModel,saveGeoRegion,saveGeoTarget,saveGeoBudget,queueGeoMonitorSample,geoMonitorTrend} from '@suns/domain';
@@ -81,6 +81,16 @@ export async function v2Api(request:Request,path:string[],actor:Actor,url:URL,js
  if(action==='inquiries'){
   if(method==='GET'){const id=url.searchParams.get('id');return response(await inquiryWorkspace(actor,id?uuid.parse(id):undefined));}
   if(method==='PATCH'){const input=z.object({id:uuid,status:z.enum(['new','processing','qualified','replied','closed','spam']),assignedTo:uuid.nullable().optional(),nextFollowUpAt:z.string().datetime({offset:true}).nullable().optional(),note:z.string().trim().max(4000).optional()}).parse(await json(request));return response(await updateInquiry(actor,input));}
+ }
+ // 意向评级（SPEC: docs/inquiry-intent-scoring-spec.md §10/§11）。落到本仓库的既有路由约定即：
+ //   GET   /api/v1/v2/inquiry-intent?id=…   ←→ SPEC 的“读取机器分/人工覆盖/最终等级”
+ //   POST  /api/v1/v2/inquiry-intent        ←→ SPEC 的 POST /admin/inquiries/:id/intent/recompute（V1 唯一触发方式）
+ //   PATCH /api/v1/v2/inquiry-intent        ←→ SPEC 的 PATCH /admin/inquiries/:id/intent-override（level 可为 null = 清除）
+ // 权限与归属全部在 domain 层：lead-scope + registry 权限门，路由本身不做归属判断（避免两套口径）。
+ if(action==='inquiry-intent'){
+  if(method==='GET')return response(await inquiryIntent(actor,uuid.parse(url.searchParams.get('id'))));
+  if(method==='POST'){const {id}=z.object({id:uuid}).parse(await json(request));return response(await recomputeInquiryIntentForActor(actor,id));}
+  if(method==='PATCH'){const {id,level}=z.object({id:uuid,level:z.enum(['hot','warm','cold','observe']).nullable()}).parse(await json(request));return response(await setInquiryIntentOverrideForActor(actor,id,level));}
  }
  if(action==='assistant-context'&&method==='GET')return response(await assistantContext(actor));
  if(action==='assistant-history'&&method==='GET')return response({rows:await assistantHistory(actor)});
