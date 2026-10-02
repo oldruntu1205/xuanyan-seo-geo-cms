@@ -2,7 +2,7 @@
 // 源文件：packages/ui/src/kiln.css + packages/ui/src/kiln-extra.css
 // 重新生成：pnpm --filter @suns/ui css:build
 
-/* ── kiln.css · 46993 bytes ── kiln 设计系统（与 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign/assets/kiln.css 逐字一致，勿在此手改） */
+/* ── kiln.css · 48239 bytes ── kiln 设计系统（与 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign/assets/kiln.css 逐字一致，勿在此手改） */
 export const kilnCSS = `/* ============================================================
    KILN — OPCTOOLS design system
    ============================================================
@@ -122,12 +122,24 @@ p{margin:0}
 .brand{display:flex; align-items:baseline; gap:.65rem; margin-right:auto}
 .brand b{font-size:1.12rem; font-weight:600; letter-spacing:.02em}
 .brand i{font-style:normal; font-size:.6rem; letter-spacing:.28em; text-transform:uppercase; color:rgba(239,231,221,.42)}
-.nav-links{display:flex; gap:clamp(.9rem,2.2vw,2rem); font-size:.68rem; letter-spacing:.24em; text-transform:uppercase}
-.nav-links a{color:var(--muted); padding-block:.5rem; transition:color .3s var(--ease)}
+/* The links stretch to the full height of the bar so the active marker can land
+   on the bar's own hairline rather than float under the word. Note the missing
+   align-items on .nav-links: leaving it at the default stretch is what lets each
+   link fill the bar, and the link centres its own text instead. */
+.nav-links{align-self:stretch; display:flex; gap:clamp(.9rem,2.2vw,2rem); font-size:.68rem; letter-spacing:.24em; text-transform:uppercase}
+.nav-links a{display:flex; align-items:center; position:relative; color:var(--muted); padding-block:.5rem; transition:color .3s var(--ease)}
 .nav-links a:hover{color:var(--ash)}
+/* Which section you are in. The rule for this already existed but the builder
+   compared it against an item's label instead of its URL, so no page on the site
+   ever carried the attribute and nothing was ever marked. On its own the colour
+   swap is too quiet to be useful — hover lands on exactly the same value — so the
+   active item also draws a 1px ember rule, the same weight as every other
+   divider on the site. */
 .nav-links a[aria-current="page"]{color:var(--ash)}
+.nav-links a[aria-current="page"]::after{content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--ember)}
 .nav-cta{display:flex; align-items:center; gap:.6rem}
 .nav-cta .btn{padding:.62rem 1.15rem; font-size:.66rem}
+.nav-cta .btn[aria-current="page"]{border-color:var(--ember); color:var(--ash)}
 .nav-burger{display:none; width:40px; height:40px; border:1px solid var(--hair); align-items:center; justify-content:center}
 .nav-burger i{display:block; width:14px; height:1px; background:var(--ash); position:relative}
 .nav-burger i::before,.nav-burger i::after{content:""; position:absolute; left:0; width:14px; height:1px; background:var(--ash); transition:transform .3s var(--ease)}
@@ -141,6 +153,9 @@ p{margin:0}
 .nav-drawer ul{list-style:none; margin:0; padding:.4rem var(--pad) 1rem}
 .nav-drawer li+li{border-top:1px solid var(--hair-2)}
 .nav-drawer a{display:block; padding:.95rem 0; font-size:.76rem; letter-spacing:.22em; text-transform:uppercase}
+/* Same marker, but a bottom rule would double up with the li's own border-top,
+   so the drawer states it in colour instead — and keeps it a distinct one. */
+.nav-drawer a[aria-current="page"]{color:var(--glow)}
 
 /* ============================================================
    HERO — an object in front of the furnace (home)

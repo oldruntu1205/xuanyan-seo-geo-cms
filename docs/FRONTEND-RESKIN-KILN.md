@@ -55,6 +55,18 @@
 
 - **类名沿用 kiln 原样**（`.wrap` `.section` `.card` `.grid` `.posts` `.pd` `.form` `.faq` `.creds`
   `.facts` `.rows` `.rail` `.spec-table` …），所以 `kiln.css` 能与设计源逐行对比、不产生"我们的特供版"。
+- **`kiln.css` 的保真度是可校验的，且必须校验**：设计源在**外部目录**、随时可能被再次修改。
+  本轮就踩到一次 —— 设计源在 `2026-10-02T13:39:50Z` 被改过（新增 4 条「当前栏目标记」规则：
+  `.nav-links a[aria-current="page"]::after` 的余烬下划线、`.nav-cta .btn[aria-current="page"]`、
+  `.nav-drawer a[aria-current="page"]`，以及 `.nav-links a` 改成 flex 容器），而我最初的 vendor 发生在
+  `12:59:55Z` —— 若不复查，仓库里那份会**永久落后于设计源**。
+  核对命令：`node .runtime/verify-css-fidelity.mjs`（当前：设计源 sha256 `BF6FA7DD…E35E`，
+  与仓库 `kiln.css` **逐字节一致**；线上 `site.css` = `kiln.css` + `kiln-extra.css` 且顺序正确）。
+- **`aria-current="page"` 由渲染器输出**：kiln 的导航高亮不是靠 `.active` 类，而是靠这个 ARIA 属性，
+  不输出它就永远命中不了那几条规则。判定口径：路径精确相等，或当前路由在该栏目路径之下；
+  **语言首页（`/en`、`/zh`…）不参与前缀匹配**，否则进任何页面都会把「首页」点亮。
+  实测：`/en/products` → 2 处（主导航 + 抽屉）、`/en/contact` → 3 处（含 `.nav-cta` 的 CONTACT 按钮）、
+  首页 0 处（回退菜单里本来就没有 Home 项）。
 - **CSS 加载顺序是硬前提**：`kiln-extra.css` 必须排在 `kiln.css` 之后（有 4 处同权重选择器靠顺序取胜：
   `.pager` / `.nav-cta .nav-search` / `.hero--banner h2` / `.home-product-image`）。合成顺序在 `build-css.mjs` 里固定。
 - **z-index 是有序列度，不是魔法数**：`60 nav（kiln） < 70 客服浮层 < 72 统计同意条 < 80 跳转链接`。
@@ -95,6 +107,9 @@
 | 行为层生效证据 | 同上截图 | 文件控件已回显「No file chosen」、统计同意条已出现、市场块 JS 已发起请求（本地无 API → 显示降级文案），说明 `site.js` 在新标记下**无报错执行** |
 | **发布链路端到端**（本轮补） | `.runtime/run-site-publish.mts`：对本地运行时库投一个站级 `rebuild` 任务，直接调 publisher 的 `processPublishJob` | **`{"routes":90,"status":"completed"}`，2.2 秒**；`static-site/` 产出新皮肤：`assets/site.css` 含 `KILN`/`--ember`、**不含**旧皮肤 `.site-header`；`assets/site.js` 含 `data-rfq-list`/`nav-burger`/`data-gallery`；`en/index.html` 含 `nav`/`hero`+`hero-caption`/`home-collection`/`home-product-image`/`creds`/`steps`/`foot-in` 且 `<h1>` 恰 1 个；产品页含 `pd-art`/`pd-spec`/`inquiry-form`/`data-rfq-list` |
 | 发布产物 vs 预览渲染 一致性 | 逐文件 SHA-256 对比（`.runtime/preview` ↔ `static-site`） | **89/90 路由逐字节相同**；唯一差异是 `/zh/products/page/2` 的 JSON-LD `dateModified`（发布本身刷新了该时间戳），**非皮肤差异**。同一页面的无头截图**字节完全相同**（`home-full2.png` 与 `pub-home.png` 的 SHA-256 一致） |
+| CSS 保真度 | `.runtime/verify-css-fidelity.mjs` | 设计源 `kiln.css` ↔ 仓库 `kiln.css` **逐字节一致**（sha256 `BF6FA7DD…`）；线上 `site.css` 前 48,156 字符 == `kiln.css`、其余 == `kiln-extra.css`；覆盖规则的先后顺序正确（`.hero-art` 基线在 9037、覆盖在 68543） |
+| 导航当前栏目标记 | 产物 HTML 扫描 + 截图 | `/en/products` → `aria-current="page"` 2 处（主导航 + 抽屉，截图可见余烬下划线）；`/en/contact` → 3 处（多出 `.nav-cta` 的 CONTACT）；首页 0 处（回退菜单无 Home 项） |
+
 
 
 **未取得验证的边界（诚实标注）**
