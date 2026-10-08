@@ -2,49 +2,35 @@
 // 源文件：packages/ui/src/kiln.css + packages/ui/src/kiln-extra.css
 // 重新生成：pnpm --filter @suns/ui css:build
 
-/* ── kiln.css · 48239 bytes ── kiln 设计系统（与 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign/assets/kiln.css 逐字一致，勿在此手改） */
-export const kilnCSS = `/* ============================================================
-   KILN — OPCTOOLS design system
-   ============================================================
-   Glass is made by fire, and this site never lets you forget it.
-   The room is dark and warm; every object is lit from behind as if
-   standing in front of an open furnace door. Type is set in wide,
-   light capitals — the voice of a workshop, not a showroom.
-
-   This file is the single source of truth for the shell (tokens,
-   nav, footer, buttons, section primitives) and for the interior
-   page components. Pages carry no duplicated base CSS.
-   ============================================================ */
+/* ── kiln.css · 47185 bytes ── 企业官网共享设计系统 */
+export const kilnCSS = `/* OPCTOOLS industrial corporate design. Shared shell, typography and page components. */
 
 *,*::before,*::after{box-sizing:border-box}
 
 :root{
-  --char:   #14100E;
-  --char-2: #1E1815;
-  --char-3: #2A211C;
-  --ember:  #D9722F;
-  --glow:   #FFC978;
-  --kiln:   #3E2A1E;
-  --ash:    #EFE7DD;
-  --hair:   rgba(239,231,221,.13);
-  --hair-2: rgba(239,231,221,.07);
+  --char:   #FFFFFF;
+  --char-2: #F3F7FA;
+  --char-3: #E8F0F6;
+  --ember:  #006BA6;
+  --glow:   #005A8C;
+  --kiln:   #DCEAF3;
+  --ash:    #142B41;
+  --hair:   rgba(20,43,65,.13);
+  --hair-2: rgba(20,43,65,.07);
   /* flat equivalent of --hair-2 over --char, for places that must not stack */
-  --hair-line: #241F1D;
-  --muted:  rgba(239,231,221,.6);
-  --ink:    rgba(239,231,221,.82);
+  --hair-line: #E3EBF0;
+  --muted:  #526579;
+  --ink:    #30475B;
 
-  --sans: "Inter","Helvetica Neue",Helvetica,Arial,"Segoe UI",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --sans: "Bahnschrift","DIN Alternate","Aptos","Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
   --mono: ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
-  --pad: clamp(1.25rem,4.4vw,4.5rem);
+  --pad: clamp(1.25rem,4vw,3.5rem);
   --ease: cubic-bezier(.22,.61,.36,1);
   --nav-h: clamp(62px,7vw,76px);
 }
 
-/* Opts the whole document into the dark rendering path for native widgets —
-   scrollbars, the <select> popup, and any control that still paints itself.
-   Without it the platform draws those light, which reads as a bright seam
-   against every surface on the page. */
-html{-webkit-text-size-adjust:100%; scroll-behavior:smooth; color-scheme:dark}
+/* Native form controls follow the light corporate palette. */
+html{-webkit-text-size-adjust:100%; scroll-behavior:smooth; color-scheme:light}
 body{
   margin:0;
   background:var(--char);
@@ -60,7 +46,7 @@ a{color:inherit; text-decoration:none}
 button{font:inherit; color:inherit; background:none; border:0; cursor:pointer}
 h1,h2,h3,h4{margin:0; font-weight:400}
 p{margin:0}
-.wrap{max-width:1420px; margin:0 auto; padding-inline:var(--pad)}
+.wrap{max-width:1320px; margin:0 auto; padding-inline:var(--pad)}
 
 /* ---------- type: wide, light capitals ---------- */
 
@@ -73,7 +59,7 @@ p{margin:0}
   font-size:clamp(1.6rem,3.4vw,2.9rem);
   letter-spacing:.01em; line-height:1.18;
 }
-.section{padding-block:clamp(4.5rem,9vw,8rem)}
+.section{padding-block:clamp(3rem,5vw,4.5rem)}
 .section--tight{padding-top:0}
 
 :focus-visible{outline:2px solid var(--glow); outline-offset:3px}
@@ -87,26 +73,26 @@ p{margin:0}
   border:1px solid var(--hair);
   transition:all .4s var(--ease);
 }
-.btn:hover{border-color:rgba(239,231,221,.42); background:rgba(239,231,221,.05)}
+.btn:hover{border-color:rgba(20,43,65,.42); background:rgba(20,43,65,.05)}
 .btn-ember{
-  background:linear-gradient(120deg, #E07C33, #C2601F);
-  border-color:transparent; color:#1A120C;
-  box-shadow:0 14px 34px -16px rgba(217,114,47,.9);
+  background:linear-gradient(120deg, #0076B8, #005A8C);
+  border-color:transparent; color:#FFFFFF;
+  box-shadow:0 14px 34px -16px rgba(0,91,149,.9);
 }
-.btn-ember:hover{background:linear-gradient(120deg,#F08A3A,#D06A24); box-shadow:0 20px 42px -16px rgba(217,114,47,.95)}
-.btn-sm{padding:.62rem 1.15rem; font-size:.66rem}
+.btn-ember:hover{background:linear-gradient(120deg,#005F99,#004E7D); box-shadow:0 20px 42px -16px rgba(0,91,149,.95)}
+.btn-sm{padding:.62rem 1.15rem; font-size:.78rem}
 .btn-row{display:flex; flex-wrap:wrap; gap:.7rem; margin-top:2.2rem}
 
 /* ---------- text link ---------- */
 
 .tlink{
   display:inline-flex; align-items:center; gap:.5rem;
-  font-size:.68rem; letter-spacing:.2em; text-transform:uppercase;
-  color:rgba(239,231,221,.55);
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
+  color:rgba(20,43,65,.55);
   border-bottom:1px solid var(--hair); padding-bottom:.35rem;
   transition:color .3s var(--ease), border-color .3s var(--ease);
 }
-.tlink:hover{color:var(--glow); border-bottom-color:rgba(255,201,120,.55)}
+.tlink:hover{color:var(--glow); border-bottom-color:rgba(0,102,166,.55)}
 
 /* ============================================================
    NAV
@@ -114,19 +100,19 @@ p{margin:0}
 
 .nav{
   position:sticky; top:0; z-index:60;
-  background:rgba(20,16,14,.82);
+  background:rgba(255,255,255,.97);
   backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--hair-2);
 }
 .nav-in{display:flex; align-items:center; gap:clamp(1rem,3vw,2.4rem); height:var(--nav-h)}
 .brand{display:flex; align-items:baseline; gap:.65rem; margin-right:auto}
 .brand b{font-size:1.12rem; font-weight:600; letter-spacing:.02em}
-.brand i{font-style:normal; font-size:.6rem; letter-spacing:.28em; text-transform:uppercase; color:rgba(239,231,221,.42)}
+.brand i{font-style:normal; font-size:.78rem; letter-spacing:.28em; text-transform:uppercase; color:rgba(20,43,65,.42)}
 /* The links stretch to the full height of the bar so the active marker can land
    on the bar's own hairline rather than float under the word. Note the missing
    align-items on .nav-links: leaving it at the default stretch is what lets each
    link fill the bar, and the link centres its own text instead. */
-.nav-links{align-self:stretch; display:flex; gap:clamp(.9rem,2.2vw,2rem); font-size:.68rem; letter-spacing:.24em; text-transform:uppercase}
+.nav-links{align-self:stretch; display:flex; gap:clamp(.9rem,2.2vw,2rem); font-size:.78rem; letter-spacing:.24em; text-transform:uppercase}
 .nav-links a{display:flex; align-items:center; position:relative; color:var(--muted); padding-block:.5rem; transition:color .3s var(--ease)}
 .nav-links a:hover{color:var(--ash)}
 /* Which section you are in. The rule for this already existed but the builder
@@ -138,7 +124,7 @@ p{margin:0}
 .nav-links a[aria-current="page"]{color:var(--ash)}
 .nav-links a[aria-current="page"]::after{content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:var(--ember)}
 .nav-cta{display:flex; align-items:center; gap:.6rem}
-.nav-cta .btn{padding:.62rem 1.15rem; font-size:.66rem}
+.nav-cta .btn{padding:.62rem 1.15rem; font-size:.78rem}
 .nav-cta .btn[aria-current="page"]{border-color:var(--ember); color:var(--ash)}
 .nav-burger{display:none; width:40px; height:40px; border:1px solid var(--hair); align-items:center; justify-content:center}
 .nav-burger i{display:block; width:14px; height:1px; background:var(--ash); position:relative}
@@ -167,16 +153,16 @@ p{margin:0}
   content:"";
   position:absolute; right:-6%; top:6%; width:min(70vw,900px); aspect-ratio:1;
   background:radial-gradient(circle at 50% 50%,
-      rgba(255,201,120,.24) 0%,
-      rgba(217,114,47,.16) 26%,
-      rgba(217,114,47,.06) 46%,
+      rgba(0,102,166,.24) 0%,
+      rgba(0,91,149,.16) 26%,
+      rgba(0,91,149,.06) 46%,
       transparent 68%);
   pointer-events:none;
 }
 .hero::after{
   content:"";
   position:absolute; inset:auto 0 0 0; height:1px;
-  background:linear-gradient(90deg, transparent, rgba(217,114,47,.5), transparent);
+  background:linear-gradient(90deg, transparent, rgba(0,91,149,.5), transparent);
 }
 .hero-in{
   position:relative;
@@ -200,7 +186,7 @@ p{margin:0}
 }
 .hero h1 em{
   font-style:normal;
-  background:linear-gradient(100deg, #FFD08A, #D9722F 62%);
+  background:linear-gradient(100deg, #008ACC, #006BA6 62%);
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
 .hero-acts{display:flex; flex-wrap:wrap; gap:.7rem; margin-top:2.2rem}
@@ -210,7 +196,7 @@ p{margin:0}
 .hero-art::before{
   content:"";
   position:absolute; inset:8%;
-  background:radial-gradient(circle at 50% 52%, rgba(255,201,120,.22), rgba(217,114,47,.08) 42%, transparent 68%);
+  background:radial-gradient(circle at 50% 52%, rgba(0,102,166,.22), rgba(0,91,149,.08) 42%, transparent 68%);
   filter:blur(14px);
 }
 /* Absolutely positioned on purpose. In flow, the image's \`height:100%\` and the
@@ -224,14 +210,14 @@ p{margin:0}
   left:6%; top:6%; width:88%; height:88%;
   object-fit:contain;
   filter:
-    drop-shadow(0 0 1.4px rgba(255,201,120,.5))
+    drop-shadow(0 0 1.4px rgba(0,102,166,.5))
     drop-shadow(0 22px 40px rgba(0,0,0,.75));
   animation:ember-rise 1.1s var(--ease) both .16s;
 }
 .hero-stamp{
   position:absolute; z-index:3; left:0; bottom:2%;
-  font-size:.62rem; letter-spacing:.26em; text-transform:uppercase;
-  color:rgba(239,231,221,.4);
+  font-size:.78rem; letter-spacing:.26em; text-transform:uppercase;
+  color:rgba(20,43,65,.4);
 }
 
 /* ============================================================
@@ -246,7 +232,7 @@ p{margin:0}
 .page-head::before{
   content:""; position:absolute; right:-12%; top:-46%;
   width:min(62vw,760px); aspect-ratio:1;
-  background:radial-gradient(circle, rgba(217,114,47,.15), transparent 66%);
+  background:radial-gradient(circle, rgba(0,91,149,.15), transparent 66%);
   pointer-events:none;
 }
 .page-head .wrap{position:relative}
@@ -263,8 +249,8 @@ p{margin:0}
 
 .crumbs{
   display:flex; flex-wrap:wrap; align-items:center; gap:.6rem;
-  font-size:.62rem; letter-spacing:.2em; text-transform:uppercase;
-  color:rgba(239,231,221,.38); margin-bottom:1.5rem;
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
+  color:rgba(20,43,65,.38); margin-bottom:1.5rem;
 }
 .crumbs a{color:var(--muted)}
 .crumbs a:hover{color:var(--ash)}
@@ -285,12 +271,12 @@ p{margin:0}
 .filters{display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:clamp(1.6rem,3vw,2.4rem)}
 .filters button{
   padding:.6rem 1.15rem;
-  font-size:.64rem; letter-spacing:.2em; text-transform:uppercase;
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
   border:1px solid var(--hair); color:var(--muted);
   transition:all .35s var(--ease);
 }
-.filters button:hover{color:var(--ash); border-color:rgba(239,231,221,.4)}
-.filters button[aria-pressed="true"]{background:var(--ember); border-color:var(--ember); color:#1A120C}
+.filters button:hover{color:var(--ash); border-color:rgba(20,43,65,.4)}
+.filters button[aria-pressed="true"]{background:var(--ember); border-color:var(--ember); color:#FFFFFF}
 
 /* The tile mesh separates tiles with a 1px hairline. It used to be drawn as a
    wash behind the grid with a 1px gap letting it through, which only reads
@@ -318,14 +304,14 @@ p{margin:0}
 /* each tile carries its own small furnace */
 .card-art::before{
   content:""; position:absolute; inset:16%;
-  background:radial-gradient(circle at 50% 56%, rgba(255,201,120,.2), rgba(217,114,47,.06) 44%, transparent 68%);
+  background:radial-gradient(circle at 50% 56%, rgba(0,102,166,.2), rgba(0,91,149,.06) 44%, transparent 68%);
   opacity:.55; transition:opacity .5s var(--ease);
 }
 .card:hover .card-art::before{opacity:1}
 .card-art img{
   position:relative; z-index:2; width:66%;
   transition:transform .55s var(--ease);
-  filter:drop-shadow(0 0 1.2px rgba(255,201,120,.4)) drop-shadow(0 14px 24px rgba(0,0,0,.7));
+  filter:drop-shadow(0 0 1.2px rgba(0,102,166,.4)) drop-shadow(0 14px 24px rgba(0,0,0,.7));
 }
 .card:hover .card-art img{transform:translateY(-6px)}
 /* A handful of lines cannot become cut-outs: they are clear glass on a studio
@@ -349,19 +335,19 @@ p{margin:0}
   position:relative; z-index:2;
   width:64%; aspect-ratio:1/1;
   display:grid; place-items:center; text-align:center; padding:1rem;
-  border:1px dashed rgba(239,231,221,.22);
-  font-size:.6rem; letter-spacing:.2em; text-transform:uppercase; line-height:1.7;
-  color:rgba(239,231,221,.34);
+  border:1px dashed rgba(20,43,65,.22);
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; line-height:1.7;
+  color:rgba(20,43,65,.34);
   transition:border-color .45s var(--ease), color .45s var(--ease);
 }
-.card--plot:hover .plot{border-color:rgba(255,201,120,.45); color:var(--glow)}
+.card--plot:hover .plot{border-color:rgba(0,102,166,.45); color:var(--glow)}
 /* the full-width stage frame reads a touch smaller so it does not compete
    with the panel it sits in */
 .pd-art--plot .plot{width:56%}
 .card-body{padding:1.15rem 1.35rem 1.45rem; border-top:1px solid var(--hair-2); display:flex; flex-direction:column; gap:.5rem; flex:1}
-.card-cat{font-size:.6rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember)}
+.card-cat{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember)}
 .card h3{font-size:.98rem; letter-spacing:.005em; line-height:1.4}
-.card .spec{font-size:.7rem; letter-spacing:.06em; color:rgba(239,231,221,.42); margin-top:auto; padding-top:.7rem}
+.card .spec{font-size:.78rem; letter-spacing:.06em; color:rgba(20,43,65,.42); margin-top:auto; padding-top:.7rem}
 .cat-foot{margin-top:clamp(1.8rem,3.4vw,2.6rem)}
 
 /* ============================================================
@@ -372,7 +358,7 @@ p{margin:0}
 .creds-in{display:grid; grid-template-columns:repeat(4,minmax(0,1fr))}
 .cred{padding:clamp(1.5rem,3vw,2.2rem) clamp(1rem,2vw,1.6rem); border-left:1px solid var(--hair-2)}
 .cred:first-child{border-left:0}
-.cred dt{font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.42); margin-bottom:.8rem}
+.cred dt{font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(20,43,65,.42); margin-bottom:.8rem}
 .cred dd{margin:0; font-size:clamp(1rem,1.4vw,1.25rem); font-weight:400; letter-spacing:.01em}
 .cred dd small{display:block; font-size:.74rem; color:var(--muted); margin-top:.35rem; letter-spacing:0}
 
@@ -380,7 +366,7 @@ p{margin:0}
 .fact{padding:clamp(1.3rem,2.6vw,2rem) clamp(1rem,2vw,1.5rem); border-right:1px solid var(--hair-2)}
 .fact:last-child{border-right:0}
 .fact b{display:block; font-size:clamp(1.45rem,2.8vw,2.1rem); font-weight:300; letter-spacing:.005em; color:var(--glow)}
-.fact span{display:block; margin-top:.5rem; font-size:.64rem; letter-spacing:.18em; text-transform:uppercase; color:rgba(239,231,221,.42)}
+.fact span{display:block; margin-top:.5rem; font-size:.78rem; letter-spacing:.18em; text-transform:uppercase; color:rgba(20,43,65,.42)}
 
 /* ============================================================
    EDITORIAL ROWS — article + guide indexes
@@ -395,11 +381,11 @@ p{margin:0}
   transition:background .4s var(--ease);
 }
 .row:hover{background:var(--char-2)}
-.row .meta{font-size:.62rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(239,231,221,.42); padding-top:.35rem}
+.row .meta{font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(20,43,65,.42); padding-top:.35rem}
 .row .meta b{display:block; color:var(--ember); font-weight:500; margin-bottom:.45rem}
 .row h3{font-size:clamp(1.05rem,1.7vw,1.32rem); letter-spacing:.005em; line-height:1.3; margin-bottom:.65rem}
 .row p{color:var(--muted); font-size:.9rem; max-width:64ch}
-.row .go{font-size:.64rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(239,231,221,.38); white-space:nowrap; padding-top:.4rem; transition:color .35s var(--ease)}
+.row .go{font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(20,43,65,.38); white-space:nowrap; padding-top:.4rem; transition:color .35s var(--ease)}
 .row:hover .go{color:var(--glow)}
 
 .rows--plain .row{grid-template-columns:minmax(0,1fr) auto}
@@ -420,7 +406,7 @@ p{margin:0}
 .prose ul,.prose ol{margin-top:1.2rem; padding-left:1.3rem; color:var(--ink)}
 .prose li+li{margin-top:.5rem}
 .prose li::marker{color:var(--ember)}
-.prose a{color:var(--glow); border-bottom:1px solid rgba(255,201,120,.35); transition:border-color .3s var(--ease)}
+.prose a{color:var(--glow); border-bottom:1px solid rgba(0,102,166,.35); transition:border-color .3s var(--ease)}
 .prose a:hover{border-bottom-color:var(--glow)}
 .prose strong{font-weight:600}
 .prose em{color:var(--glow); font-style:normal}
@@ -430,17 +416,17 @@ p{margin:0}
   border-left:2px solid var(--ember);
   font-size:clamp(1.02rem,1.5vw,1.16rem); line-height:1.55; color:var(--ash);
 }
-.prose blockquote cite{display:block; margin-top:.9rem; font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(239,231,221,.42); font-style:normal}
+.prose blockquote cite{display:block; margin-top:.9rem; font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(20,43,65,.42); font-style:normal}
 .prose figure{margin-top:2.4rem}
 .prose figure img{border:1px solid var(--hair); background:var(--char-2); width:100%}
-.prose figcaption{margin-top:.85rem; font-size:.72rem; letter-spacing:.06em; color:rgba(239,231,221,.45)}
+.prose figcaption{margin-top:.85rem; font-size:.72rem; letter-spacing:.06em; color:rgba(20,43,65,.45)}
 .prose code{font-family:var(--mono); font-size:.86em; background:var(--char-2); border:1px solid var(--hair-2); padding:.12rem .4rem}
 .prose .figure--plate img{background:var(--char-2)}
 
 /* two-column body with sticky aside */
 .doc{display:grid; grid-template-columns:minmax(0,1fr) 15.5rem; gap:clamp(2rem,5vw,4.5rem); align-items:start}
 .toc{position:sticky; top:calc(var(--nav-h) + 1.6rem)}
-.toc h4{font-size:.6rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.42); font-weight:400; margin-bottom:1rem}
+.toc h4{font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(20,43,65,.42); font-weight:400; margin-bottom:1rem}
 .toc ol{list-style:none; margin:0; padding:0; display:grid; gap:.1rem}
 .toc a{
   display:block; padding:.55rem .85rem; font-size:.82rem; line-height:1.4;
@@ -454,7 +440,7 @@ p{margin:0}
 .byline{
   display:flex; flex-wrap:wrap; align-items:center; gap:.7rem 1.4rem;
   padding-block:1.4rem; border-block:1px solid var(--hair);
-  font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(239,231,221,.45);
+  font-size:.78rem; letter-spacing:.16em; text-transform:uppercase; color:rgba(20,43,65,.45);
 }
 .byline b{color:var(--ember); font-weight:500}
 
@@ -465,10 +451,10 @@ p{margin:0}
 .spec-table{width:100%; border-collapse:collapse; font-size:.87rem}
 .spec-table caption{
   text-align:left; padding-bottom:.95rem;
-  font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.42);
+  font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(20,43,65,.42);
 }
 .spec-table th,.spec-table td{padding:.85rem 1rem; border-bottom:1px solid var(--hair-2); text-align:left; vertical-align:top}
-.spec-table th{font-weight:400; letter-spacing:.06em; color:rgba(239,231,221,.5)}
+.spec-table th{font-weight:400; letter-spacing:.06em; color:rgba(20,43,65,.5)}
 /* Only a row-header key column is held on one line. Applying \`nowrap\` and a 36%
    width to *every* th sets a min-content width that a three- or four-column
    comparison table cannot honour at 390px — and because body has
@@ -484,9 +470,9 @@ p{margin:0}
 /* A table wider than the column it sits in scrolls itself rather than pushing the
    whole document. Kept thin and low-contrast so it reads as a hint, not a control. */
 .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch;
-  scrollbar-width:thin; scrollbar-color:rgba(239,231,221,.25) transparent}
+  scrollbar-width:thin; scrollbar-color:rgba(20,43,65,.25) transparent}
 .table-wrap::-webkit-scrollbar{height:6px}
-.table-wrap::-webkit-scrollbar-thumb{background:rgba(239,231,221,.22)}
+.table-wrap::-webkit-scrollbar-thumb{background:rgba(20,43,65,.22)}
 .table-wrap::-webkit-scrollbar-track{background:transparent}
 
 /* ============================================================
@@ -495,10 +481,10 @@ p{margin:0}
 
 .note{
   border:1px solid var(--hair); border-left:2px solid var(--ember);
-  background:linear-gradient(120deg, rgba(217,114,47,.07), transparent 62%);
+  background:linear-gradient(120deg, rgba(0,91,149,.07), transparent 62%);
   padding:clamp(1.15rem,2.4vw,1.6rem) clamp(1.15rem,2.4vw,1.7rem);
 }
-.note h4{font-size:.64rem; letter-spacing:.22em; text-transform:uppercase; color:var(--glow); font-weight:500; margin-bottom:.6rem}
+.note h4{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:var(--glow); font-weight:500; margin-bottom:.6rem}
 .note p{color:var(--ink); font-size:.9rem}
 .note>*+*{margin-top:.7rem}
 
@@ -517,7 +503,7 @@ p{margin:0}
   content:""; position:absolute; left:-3px; top:.55rem;
   width:7px; height:7px; border-radius:50%; background:var(--ember);
 }
-.timeline .yr{font-size:.64rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember)}
+.timeline .yr{font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ember)}
 .timeline h3{font-size:1rem; margin:.45rem 0 .5rem}
 .timeline p{color:var(--muted); font-size:.88rem; max-width:62ch}
 
@@ -528,30 +514,30 @@ p{margin:0}
 .form{display:grid; gap:1.15rem}
 .form .duo{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1.15rem}
 .field{display:grid; gap:.55rem}
-.field label,.field .field-label{font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(239,231,221,.5)}
+.field label,.field .field-label{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(20,43,65,.5)}
 .field input,.field select,.field textarea{
   width:100%; padding:.92rem 1.05rem;
   font:inherit; font-size:.9rem; color:var(--ash);
   background:var(--char-2); border:1px solid var(--hair); border-radius:0;
   transition:border-color .3s var(--ease), background .3s var(--ease);
 }
-.field input::placeholder,.field textarea::placeholder{color:rgba(239,231,221,.28)}
+.field input::placeholder,.field textarea::placeholder{color:rgba(20,43,65,.28)}
 .field input:focus,.field select:focus,.field textarea:focus{
-  outline:none; border-color:rgba(255,201,120,.5); background:#221B17;
+  outline:none; border-color:rgba(0,102,166,.5); background:#fff;
 }
 .field textarea{min-height:9.5rem; resize:vertical}
 .field select{
   appearance:none; cursor:pointer;
-  background-image:linear-gradient(45deg,transparent 50%,rgba(239,231,221,.5) 50%),linear-gradient(135deg,rgba(239,231,221,.5) 50%,transparent 50%);
+  background-image:linear-gradient(45deg,transparent 50%,rgba(20,43,65,.5) 50%),linear-gradient(135deg,rgba(20,43,65,.5) 50%,transparent 50%);
   background-position:calc(100% - 1.4rem) 50%, calc(100% - 1rem) 50%;
   background-size:5px 5px, 5px 5px; background-repeat:no-repeat;
 }
 .field select option{background:var(--char-2)}
-.field .hint{font-size:.72rem; color:rgba(239,231,221,.4); letter-spacing:.02em}
+.field .hint{font-size:.72rem; color:rgba(20,43,65,.4); letter-spacing:.02em}
 .form-foot{display:flex; flex-wrap:wrap; align-items:center; gap:1.2rem; margin-top:.6rem}
 .form-status{
-  display:none; border:1px solid rgba(255,201,120,.4);
-  background:linear-gradient(120deg, rgba(255,201,120,.1), transparent 60%);
+  display:none; border:1px solid rgba(0,102,166,.4);
+  background:linear-gradient(120deg, rgba(0,102,166,.1), transparent 60%);
   padding:1rem 1.15rem; font-size:.86rem; color:var(--ash);
 }
 .form-status[data-shown="true"]{display:block}
@@ -563,12 +549,12 @@ p{margin:0}
 .info{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--hair)}
 .info>div{padding:clamp(1.4rem,2.8vw,2.1rem) clamp(1.1rem,2.2vw,1.6rem); border-right:1px solid var(--hair-2)}
 .info>div:last-child{border-right:0}
-.info h4{font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(239,231,221,.42); font-weight:400; margin-bottom:.95rem}
+.info h4{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(20,43,65,.42); font-weight:400; margin-bottom:.95rem}
 .info p,.info a{font-size:.9rem; color:var(--ink)}
 .info a{color:var(--glow)}
 .info a:hover{border-bottom:1px solid var(--glow)}
 .info dl{margin:0; display:grid; gap:.55rem; font-size:.88rem}
-.info dt{color:rgba(239,231,221,.45); font-size:.7rem; letter-spacing:.14em; text-transform:uppercase}
+.info dt{color:rgba(20,43,65,.45); font-size:.78rem; letter-spacing:.14em; text-transform:uppercase}
 .info dd{margin:0; color:var(--ink)}
 
 /* ============================================================
@@ -597,12 +583,12 @@ p{margin:0}
   position:relative; aspect-ratio:1/1; display:grid; place-items:center; overflow:hidden;
   border:1px solid var(--hair);
   background:
-    radial-gradient(circle at 50% 56%, rgba(255,201,120,.18), rgba(217,114,47,.05) 44%, transparent 70%),
+    radial-gradient(circle at 50% 56%, rgba(0,102,166,.18), rgba(0,91,149,.05) 44%, transparent 70%),
     linear-gradient(180deg, var(--char-2), var(--char));
 }
 .pd-art img{
   position:relative; z-index:2; width:72%;
-  filter:drop-shadow(0 0 1.4px rgba(255,201,120,.4)) drop-shadow(0 20px 34px rgba(0,0,0,.72));
+  filter:drop-shadow(0 0 1.4px rgba(0,102,166,.4)) drop-shadow(0 20px 34px rgba(0,0,0,.72));
 }
 .pd-art--plate img{width:88%; border-radius:3px}
 .thumbs{display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.1rem}
@@ -612,12 +598,12 @@ p{margin:0}
   transition:border-color .3s var(--ease), background .3s var(--ease);
 }
 .thumbs button img{width:72%}
-.thumbs button:hover{border-color:rgba(239,231,221,.4)}
-.thumbs button[aria-pressed="true"]{border-color:var(--ember); background:#231A15}
+.thumbs button:hover{border-color:rgba(20,43,65,.4)}
+.thumbs button[aria-pressed="true"]{border-color:var(--ember); background:#E8F0F6}
 /* A plate thumbnail is a framed photograph, not a cut-out, so it fills more of
    its square before it reads as the same weight as its neighbours. */
 .thumbs button.plate img{width:92%}
-.thumbs-note{margin-top:.9rem; font-size:.74rem; color:rgba(239,231,221,.45); max-width:52ch}
+.thumbs-note{margin-top:.9rem; font-size:.74rem; color:rgba(20,43,65,.45); max-width:52ch}
 
 /* The panel used to open with the product name again, once the page head had
    already set it as the h1 inside the same screen. It opens on the one line
@@ -626,12 +612,12 @@ p{margin:0}
 .pd-lead{margin-top:.85rem; font-size:clamp(1.02rem,2vw,1.3rem); font-weight:300; line-height:1.35; letter-spacing:.015em; color:var(--ash)}
 .pd-spec{margin-top:1.6rem; list-style:none; padding:0; display:grid; gap:.05rem}
 .pd-spec li{display:flex; justify-content:space-between; gap:1.4rem; padding:.72rem 0; border-bottom:1px solid var(--hair-2); font-size:.88rem}
-.pd-spec li span:first-child{color:rgba(239,231,221,.45); letter-spacing:.06em}
+.pd-spec li span:first-child{color:rgba(20,43,65,.45); letter-spacing:.06em}
 .pd-spec li span:last-child{text-align:right; color:var(--ink)}
 
 .chips{display:flex; flex-wrap:wrap; gap:.45rem; margin-top:1.4rem}
 .chips span{
-  padding:.42rem .8rem; font-size:.62rem; letter-spacing:.18em; text-transform:uppercase;
+  padding:.42rem .8rem; font-size:.78rem; letter-spacing:.18em; text-transform:uppercase;
   border:1px solid var(--hair); color:var(--muted);
 }
 
@@ -648,7 +634,7 @@ p{margin:0}
 }
 .rail a:hover{color:var(--ash); background:var(--char-2)}
 .rail a[aria-current="true"]{color:var(--ash); border-left-color:var(--ember); background:var(--char-2)}
-.rail .c{font-size:.7rem; color:rgba(239,231,221,.35)}
+.rail .c{font-size:.78rem; color:rgba(20,43,65,.35)}
 
 /* ============================================================
    PAGINATION
@@ -657,11 +643,11 @@ p{margin:0}
 .pager{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:clamp(2rem,4vw,3rem)}
 .pager a,.pager span{
   min-width:2.7rem; padding:.65rem .9rem; text-align:center;
-  border:1px solid var(--hair); font-size:.7rem; letter-spacing:.14em; color:var(--muted);
+  border:1px solid var(--hair); font-size:.78rem; letter-spacing:.14em; color:var(--muted);
   transition:all .3s var(--ease);
 }
-.pager a:hover{color:var(--ash); border-color:rgba(239,231,221,.4)}
-.pager [aria-current="page"]{background:var(--ember); border-color:var(--ember); color:#1A120C}
+.pager a:hover{color:var(--ash); border-color:rgba(20,43,65,.4)}
+.pager [aria-current="page"]{background:var(--ember); border-color:var(--ember); color:#FFFFFF}
 
 /* ============================================================
    LAYOUT HELPERS
@@ -680,13 +666,13 @@ p{margin:0}
 .mat-art{
   position:relative; aspect-ratio:4/5; display:grid; place-items:center; overflow:hidden;
   background:
-    radial-gradient(circle at 50% 76%, rgba(255,201,120,.2), rgba(217,114,47,.07) 38%, transparent 64%),
+    radial-gradient(circle at 50% 76%, rgba(0,102,166,.2), rgba(0,91,149,.07) 38%, transparent 64%),
     linear-gradient(180deg, var(--char-2), var(--char));
   border:1px solid var(--hair);
 }
 .mat-art .kiln-line{
   position:absolute; left:0; right:0; bottom:26%; height:1px;
-  background:linear-gradient(90deg, transparent, rgba(255,201,120,.55), transparent);
+  background:linear-gradient(90deg, transparent, rgba(0,102,166,.55), transparent);
 }
 .mat-art .kiln-line::after{
   content:"≈ 1 200 °C"; position:absolute; right:1.2rem; top:-1.6rem;
@@ -694,12 +680,12 @@ p{margin:0}
 }
 .mat-art img{
   position:relative; z-index:2; width:64%;
-  filter:drop-shadow(0 0 1.4px rgba(255,201,120,.45)) drop-shadow(0 20px 32px rgba(0,0,0,.7));
+  filter:drop-shadow(0 0 1.4px rgba(0,102,166,.45)) drop-shadow(0 20px 32px rgba(0,0,0,.7));
 }
 .mat-list{list-style:none; margin:2rem 0 0; padding:0}
 .mat-list li{display:grid; grid-template-columns:auto minmax(0,1fr); gap:1.1rem; padding:1.2rem 0; border-top:1px solid var(--hair-2)}
 .mat-list li:last-child{border-bottom:1px solid var(--hair-2)}
-.mat-list .n{font-size:.66rem; letter-spacing:.2em; color:var(--ember); padding-top:.3rem}
+.mat-list .n{font-size:.78rem; letter-spacing:.2em; color:var(--ember); padding-top:.3rem}
 .mat-list h3{font-size:1rem; letter-spacing:.01em; margin-bottom:.35rem}
 .mat-list p{color:var(--muted); font-size:.9rem}
 
@@ -709,17 +695,17 @@ p{margin:0}
 
 .process{
   border:1px solid var(--hair);
-  background:linear-gradient(160deg, rgba(217,114,47,.06), transparent 52%);
+  background:linear-gradient(160deg, rgba(0,91,149,.06), transparent 52%);
 }
 .process-head{
   display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.82fr); gap:2.5rem; align-items:end;
   padding:clamp(1.8rem,3.4vw,2.8rem) clamp(1.3rem,3vw,2.4rem);
   border-bottom:1px solid var(--hair);
 }
-.steps{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr))}
+.steps{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr))}
 .step{padding:clamp(1.5rem,3vw,2.2rem) clamp(1.1rem,2vw,1.6rem) clamp(1.9rem,3.6vw,2.6rem); border-right:1px solid var(--hair)}
 .step:last-child{border-right:0}
-.step .idx{font-size:.64rem; letter-spacing:.22em; color:var(--ember); display:block; margin-bottom:1.2rem}
+.step .idx{font-size:.78rem; letter-spacing:.22em; color:var(--ember); display:block; margin-bottom:1.2rem}
 .step h3{font-size:1rem; margin-bottom:.55rem}
 .step p{color:var(--muted); font-size:.87rem}
 
@@ -734,11 +720,11 @@ p{margin:0}
   transition:background .4s var(--ease);
 }
 .post:last-child{border-right:0}
-.post:hover{background:linear-gradient(180deg, rgba(217,114,47,.07), transparent)}
-.post .k{font-size:.6rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember); margin-bottom:1.3rem}
+.post:hover{background:linear-gradient(180deg, rgba(0,91,149,.07), transparent)}
+.post .k{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember); margin-bottom:1.3rem}
 .post h3{font-size:1.08rem; letter-spacing:.005em; margin-bottom:.8rem}
 .post p{color:var(--muted); font-size:.89rem; flex:1}
-.post .rd{margin-top:1.7rem; padding-top:.9rem; border-top:1px solid var(--hair-2); font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(239,231,221,.5)}
+.post .rd{margin-top:1.7rem; padding-top:.9rem; border-top:1px solid var(--hair-2); font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(20,43,65,.5)}
 .post:hover .rd{color:var(--glow)}
 
 /* ============================================================
@@ -750,18 +736,18 @@ p{margin:0}
   width:100%; margin-top:1.5rem; padding:1rem 1.15rem;
   font:inherit; font-size:.86rem; letter-spacing:.06em; color:var(--ash);
   background:var(--char-2); border:1px solid var(--hair); appearance:none; cursor:pointer;
-  background-image:linear-gradient(45deg,transparent 50%,rgba(239,231,221,.5) 50%),linear-gradient(135deg,rgba(239,231,221,.5) 50%,transparent 50%);
+  background-image:linear-gradient(45deg,transparent 50%,rgba(20,43,65,.5) 50%),linear-gradient(135deg,rgba(20,43,65,.5) 50%,transparent 50%);
   background-position:calc(100% - 1.4rem) 50%, calc(100% - 1rem) 50%;
   background-size:5px 5px, 5px 5px; background-repeat:no-repeat;
 }
 .market select option{background:var(--char-2)}
-.market-note{margin-top:1rem; font-size:.82rem; color:rgba(239,231,221,.42); letter-spacing:.02em}
+.market-note{margin-top:1rem; font-size:.82rem; color:rgba(20,43,65,.42); letter-spacing:.02em}
 .market-art{
   aspect-ratio:4/3; display:grid; place-items:center; overflow:hidden;
-  background:radial-gradient(circle at 50% 58%, rgba(255,201,120,.2), rgba(217,114,47,.06) 42%, transparent 66%), var(--char-2);
+  background:radial-gradient(circle at 50% 58%, rgba(0,102,166,.2), rgba(0,91,149,.06) 42%, transparent 66%), var(--char-2);
   border:1px solid var(--hair);
 }
-.market-art img{width:52%; filter:drop-shadow(0 0 1.4px rgba(255,201,120,.45)) drop-shadow(0 18px 28px rgba(0,0,0,.7))}
+.market-art img{width:52%; filter:drop-shadow(0 0 1.4px rgba(0,102,166,.45)) drop-shadow(0 18px 28px rgba(0,0,0,.7))}
 
 /* ============================================================
    CLOSING BAND
@@ -775,7 +761,7 @@ p{margin:0}
 .close::before{
   content:""; position:absolute; left:50%; top:30%; width:min(80vw,760px); aspect-ratio:1;
   transform:translateX(-50%);
-  background:radial-gradient(circle, rgba(217,114,47,.16), transparent 66%);
+  background:radial-gradient(circle, rgba(0,91,149,.16), transparent 66%);
   pointer-events:none;
 }
 .close>*{position:relative}
@@ -789,12 +775,12 @@ p{margin:0}
 
 footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem)}
 .foot-in{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap:2.4rem; padding-bottom:2.4rem; border-bottom:1px solid var(--hair-2)}
-.foot-in h4{font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.42); font-weight:400; margin-bottom:1rem}
+.foot-in h4{font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(20,43,65,.42); font-weight:400; margin-bottom:1rem}
 .foot-in ul{list-style:none; margin:0; padding:0; display:grid; gap:.58rem}
 .foot-in a{font-size:.88rem; color:var(--muted); transition:color .3s var(--ease)}
 .foot-in a:hover{color:var(--ash)}
 .foot-note{font-size:.88rem; color:var(--muted); max-width:26rem; margin-top:.9rem}
-.foot-base{display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; padding-top:1.4rem; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(239,231,221,.38)}
+.foot-base{display:flex; flex-wrap:wrap; justify-content:space-between; gap:1rem; padding-top:1.4rem; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:rgba(20,43,65,.38)}
 
 /* ============================================================
    RESPONSIVE
@@ -888,12 +874,12 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 .topic h3{font-size:clamp(1.1rem,1.8vw,1.4rem); letter-spacing:.005em; line-height:1.28; margin:1.2rem 0 .8rem}
 .topic p{color:var(--muted); font-size:.89rem; flex:1}
 .topic .n{
-  font-size:.62rem; letter-spacing:.24em; text-transform:uppercase;
+  font-size:.78rem; letter-spacing:.24em; text-transform:uppercase;
   color:var(--ember);
 }
 .topic .rd{
   margin-top:1.7rem; padding-top:.9rem; border-top:1px solid var(--hair-2);
-  font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(239,231,221,.5);
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:rgba(20,43,65,.5);
 }
 .topic:hover .rd{color:var(--glow)}
 
@@ -903,8 +889,8 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 
 .rail-wrap{position:sticky; top:calc(var(--nav-h) + 1.6rem)}
 .rail-wrap h4{
-  font-size:.6rem; letter-spacing:.24em; text-transform:uppercase;
-  color:rgba(239,231,221,.42); font-weight:400; margin-bottom:1rem;
+  font-size:.78rem; letter-spacing:.24em; text-transform:uppercase;
+  color:rgba(20,43,65,.42); font-weight:400; margin-bottom:1rem;
 }
 
 /* ============================================================
@@ -931,17 +917,17 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
   opacity:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap;
 }
 .file-field .file-btn{
-  font-size:.64rem; letter-spacing:.18em; text-transform:uppercase;
+  font-size:.78rem; letter-spacing:.18em; text-transform:uppercase;
   color:var(--ash); background:none;
   padding:.5rem .95rem; border:1px solid var(--hair); cursor:pointer;
   transition:border-color .3s var(--ease), color .3s var(--ease);
 }
-.file-field .file-btn:hover{border-color:rgba(239,231,221,.42)}
+.file-field .file-btn:hover{border-color:rgba(20,43,65,.42)}
 .file-field input[type="file"]:focus-visible + .file-btn{
   border-color:var(--glow); color:var(--glow);
 }
 .file-field .file-name{
-  font-size:.82rem; letter-spacing:.02em; color:rgba(239,231,221,.4);
+  font-size:.82rem; letter-spacing:.02em; color:rgba(20,43,65,.4);
   min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .file-field.is-set .file-name{color:var(--ink)}
@@ -955,8 +941,8 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 }
 .check input:checked{
   background:var(--ember); border-color:var(--ember);
-  background-image:linear-gradient(45deg,transparent 46%,#1A120C 46%,#1A120C 56%,transparent 56%),
-                   linear-gradient(-45deg,transparent 58%,#1A120C 58%,#1A120C 68%,transparent 68%);
+  background-image:linear-gradient(45deg,transparent 46%,#FFFFFF 46%,#FFFFFF 56%,transparent 56%),
+                   linear-gradient(-45deg,transparent 58%,#FFFFFF 58%,#FFFFFF 68%,transparent 68%);
 }
 .check input:focus-visible{outline:2px solid var(--glow); outline-offset:3px}
 .check span{font-size:.82rem; color:var(--muted); line-height:1.6}
@@ -968,7 +954,7 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 .inquiry-list{border:1px solid var(--hair); background:var(--char-2)}
 .inquiry-list .hd{
   padding:1rem 1.2rem; border-bottom:1px solid var(--hair);
-  font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(239,231,221,.42);
+  font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:rgba(20,43,65,.42);
 }
 .inquiry-list .bd{padding:1.5rem 1.2rem}
 .inquiry-list .bd p{font-size:.86rem; color:var(--muted)}
@@ -1000,29 +986,9 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 }
 `;
 
-/* ── kiln-extra.css · 27249 bytes ── kiln 之外的 CMS 组件层（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
-export const kilnExtraCSS = `/* ============================================================
-   KILN-EXTRA — kiln 之外的 CMS 组件层
-   ============================================================
-   公开站（opctools.cloud / 9 语言 / nginx 直出静态页）的版式基座是
-   packages/ui/src/kiln.css（与设计源 04-kiln 逐字一致，只读）。
-   kiln 覆盖了模板站的全部版式区块；SUNS 另有一批模板里不存在的组件——
-   询盘篮、首页轮播、统计同意、客服浮层、市场采购块、站内搜索、分页、
-   语言切换、加询盘反馈——它们不是模板的一部分，所以集中放在本文件，
-   不混进 kiln.css（kiln.css 要保持能与设计源逐行对比）。
-
-   三条纪律：
-   ① 只用 kiln 的变量（--char/--char-2/--char-3/--ember/--glow/--kiln/--ash/
-      --hair/--hair-2/--hair-line/--muted/--ink/--sans/--mono/--pad/--ease/--nav-h）
-      与 kiln 自己的字面量（rgba(239,231,221,x) / rgba(255,201,120,x) /
-      rgba(217,114,47,x)）。不引入新调色板、不用亮底、不用圆角、不用 SaaS 式大投影。
-   ② 不重复 kiln 已定义的类。下面每组注释都写明「XX 由 kiln 承担，不重写」。
-   ③ 本文件必须在 kiln.css 之后加载：有 4 处与 kiln 同权重、靠顺序取胜
-      （.pager / .nav-cta .nav-search / .hero--banner h2 / .home-product-image）。
-
-   z-index 刻度（kiln 的 .nav 是 60，浮层只能排在 60 之上；用有序刻度，不用 99999）：
-     60 nav（kiln） < 70 客服浮层 < 72 统计同意条（先回答它，它压住浮层） < 80 跳转链接（键盘优先）
-   ============================================================ */
+/* ── kiln-extra.css · 37408 bytes ── CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
+export const kilnExtraCSS = `/* CMS components and corporate layout refinements. Built after kiln.css.
+   Keep browser hooks and image minmax tracks intact. */
 
 /* ---------- 0. 正确性修复：hidden 属性必须赢过 kiln 的 display ----------
    kiln 的 .card{display:flex} 会盖掉浏览器默认的 [hidden]{display:none}，
@@ -1040,7 +1006,7 @@ export const kilnExtraCSS = `/* ================================================
   position:absolute; left:var(--pad); top:-4.5rem; z-index:80;
   padding:.72rem 1.15rem;
   background:var(--char-2); border:1px solid var(--hair);
-  font-size:.66rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ash);
+  font-size:.78rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ash);
   transition:top .25s var(--ease);
 }
 .skip-link:focus{top:.7rem}
@@ -1050,7 +1016,7 @@ export const kilnExtraCSS = `/* ================================================
 .language{position:relative}
 .language summary{
   display:inline-flex; align-items:center; gap:.5rem;
-  padding:.62rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  padding:.62rem 1.15rem; font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
   color:var(--muted); border:1px solid var(--hair); cursor:pointer; list-style:none;
   transition:color .3s var(--ease), border-color .3s var(--ease);
 }
@@ -1060,7 +1026,7 @@ export const kilnExtraCSS = `/* ================================================
   border-right:1px solid currentColor; border-bottom:1px solid currentColor;
   transform:translateY(-1px) rotate(45deg); transition:transform .3s var(--ease);
 }
-.language summary:hover,.language[open] summary{color:var(--ash); border-color:rgba(239,231,221,.42)}
+.language summary:hover,.language[open] summary{color:var(--ash); border-color:rgba(20,43,65,.42)}
 .language[open] summary::after{transform:translateY(1px) rotate(-135deg)}
 .language ul{
   position:absolute; right:0; top:calc(100% + .5rem); z-index:1;
@@ -1068,7 +1034,7 @@ export const kilnExtraCSS = `/* ================================================
   background:var(--char-2); border:1px solid var(--hair);
 }
 .language li>a{
-  display:block; padding:.55rem 1.05rem; font-size:.66rem; letter-spacing:.2em; color:var(--muted);
+  display:block; padding:.55rem 1.05rem; font-size:.78rem; letter-spacing:.2em; color:var(--muted);
   transition:color .3s var(--ease), background .3s var(--ease);
 }
 .language li>a:hover,.language li>a[aria-current="true"]{color:var(--glow); background:var(--char-3)}
@@ -1084,15 +1050,15 @@ export const kilnExtraCSS = `/* ================================================
 .rfq-count{
   display:inline-grid; place-items:center;
   min-width:1.3rem; height:1.3rem; padding:0 .32rem;
-  font-size:.62rem; letter-spacing:0; line-height:1; font-variant-numeric:tabular-nums;
-  background:var(--char); color:var(--glow); border:1px solid rgba(255,201,120,.45);
+  font-size:.78rem; letter-spacing:0; line-height:1; font-variant-numeric:tabular-nums;
+  background:var(--char); color:var(--glow); border:1px solid rgba(0,102,166,.45);
 }
 .rfq-count[hidden]{display:none}
 
 /* 抽屉里的二级菜单项：缩进 + 更弱的前景色（一级项沿用 kiln 的 .76rem 大写）。
    缩进放在嵌套 <ul> 上——kiln 的 .nav-drawer ul 给每层都加了 var(--pad)，不覆盖会越缩越深。 */
 .nav-drawer li.sub>ul{padding:.2rem 0 .4rem 1.1rem}
-.nav-drawer li.sub>a{font-size:.7rem; letter-spacing:.18em; color:var(--muted)}
+.nav-drawer li.sub>a{font-size:.78rem; letter-spacing:.18em; color:var(--muted)}
 .nav-drawer li.sub>a:hover{color:var(--ash)}
 
 /* 客服浮层：browser.ts 的 service() 会重建里面的 <a>/<p>。暗底细线，克制外观；
@@ -1101,13 +1067,13 @@ export const kilnExtraCSS = `/* ================================================
 .service-widget[hidden]{display:none}
 .service-widget summary{
   display:inline-flex; align-items:center; gap:.5rem; cursor:pointer; list-style:none;
-  padding:.72rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  padding:.72rem 1.15rem; font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
   color:var(--ash); background:var(--char-2); border:1px solid var(--hair);
   box-shadow:0 16px 34px -20px rgba(0,0,0,.85); /* 只为与页面内容分开，不是 SaaS 投影 */
   transition:color .3s var(--ease), border-color .3s var(--ease);
 }
 .service-widget summary::-webkit-details-marker{display:none}
-.service-widget summary:hover,.service-widget[open] summary{color:var(--glow); border-color:rgba(255,201,120,.45)}
+.service-widget summary:hover,.service-widget[open] summary{color:var(--glow); border-color:rgba(0,102,166,.45)}
 .service-widget>div{
   position:absolute; right:0; bottom:calc(100% + .6rem);
   width:min(19rem,calc(100vw - (var(--pad)*2))); max-height:min(60vh,22rem); overflow-y:auto;
@@ -1125,26 +1091,26 @@ export const kilnExtraCSS = `/* ================================================
   position:fixed; left:0; right:0; bottom:0; z-index:72;
   display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.8rem 1.4rem;
   padding:1rem var(--pad);
-  background:rgba(20,16,14,.96);
+  background:rgba(255,255,255,.98);
   backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
 }
 .analytics-consent::before{
   content:""; position:absolute; inset:0 0 auto 0; height:1px;
-  background:linear-gradient(90deg, transparent, rgba(217,114,47,.5), transparent);
+  background:linear-gradient(90deg, transparent, rgba(0,91,149,.5), transparent);
 }
 .analytics-consent[hidden]{display:none}
 .analytics-consent p{font-size:.84rem; color:var(--ink); max-width:54ch}
 .analytics-consent button{
-  padding:.62rem 1.15rem; font-size:.66rem; letter-spacing:.2em; text-transform:uppercase;
+  padding:.62rem 1.15rem; font-size:.78rem; letter-spacing:.2em; text-transform:uppercase;
   border:1px solid var(--hair); color:var(--muted);
   transition:color .3s var(--ease), border-color .3s var(--ease), background .3s var(--ease);
 }
-.analytics-consent button:hover{color:var(--ash); border-color:rgba(239,231,221,.42)}
+.analytics-consent button:hover{color:var(--ash); border-color:rgba(20,43,65,.42)}
 .analytics-consent button[data-analytics-choice="yes"]{
-  background:linear-gradient(120deg,#E07C33,#C2601F); border-color:transparent; color:#1A120C;
-  box-shadow:0 14px 34px -16px rgba(217,114,47,.9);
+  background:linear-gradient(120deg,#0076B8,#005A8C); border-color:transparent; color:#FFFFFF;
+  box-shadow:0 14px 34px -16px rgba(0,91,149,.9);
 }
-.analytics-consent button[data-analytics-choice="yes"]:hover{background:linear-gradient(120deg,#F08A3A,#D06A24)}
+.analytics-consent button[data-analytics-choice="yes"]:hover{background:linear-gradient(120deg,#005F99,#004E7D)}
 /* 同意条钉在底部时，右下角的客服浮层会被它压住（72 > 70），所以让浮层上移让位。
    两者都是 <body> 的子元素，用相邻兄弟选择器即可，不必依赖 :has()；
    9 语言文案长短不一，9rem 是按两行文案留的余量。 */
@@ -1189,8 +1155,8 @@ export const kilnExtraCSS = `/* ================================================
    效果照抄 kiln 的 .hero-stamp，但不用那个名字。 */
 .hero-caption{
   position:absolute; z-index:3; left:0; bottom:2%;
-  font-size:.62rem; letter-spacing:.26em; text-transform:uppercase;
-  color:rgba(239,231,221,.4);
+  font-size:.78rem; letter-spacing:.26em; text-transform:uppercase;
+  color:rgba(20,43,65,.4);
 }
 /* 与 kiln 的 .hero-stamp 同样在 ≤880px 收掉：单列时图上的小字只是噪点，
    而且它的文案（副标题 / 站点名）与上方 .hero-copy 的眉标本来就重复。 */
@@ -1204,19 +1170,19 @@ export const kilnExtraCSS = `/* ================================================
   padding-block:1.2rem; border-top:1px solid var(--hair-2);
 }
 .hero-note{
-  font-size:.62rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(239,231,221,.4);
+  font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(20,43,65,.4);
 }
-.hero-controls{display:flex; align-items:center; gap:.5rem; font-size:.68rem; color:rgba(239,231,221,.55)}
+.hero-controls{display:flex; align-items:center; gap:.5rem; font-size:.78rem; color:rgba(20,43,65,.55)}
 .hero-controls button{
   display:grid; place-items:center; width:2.35rem; height:2.35rem; line-height:1;
   border:1px solid var(--hair); color:var(--muted); background:none;
   transition:color .3s var(--ease), border-color .3s var(--ease);
 }
-.hero-controls button:hover{color:var(--glow); border-color:rgba(255,201,120,.55)}
+.hero-controls button:hover{color:var(--glow); border-color:rgba(0,102,166,.55)}
 .hero-controls [data-slide-count]{
   min-width:4.6rem; text-align:center;
-  font-size:.66rem; letter-spacing:.2em; font-variant-numeric:tabular-nums;
-  color:rgba(239,231,221,.45);
+  font-size:.78rem; letter-spacing:.2em; font-variant-numeric:tabular-nums;
+  color:rgba(20,43,65,.45);
 }
 /* hero-acts 里的次要动作（.tlink）与 .btn-ember 同排：默认 stretch 会把它拉满行高，
    下划线就跑到按钮底边去了，这里让它按自身高度垂直居中。 */
@@ -1233,7 +1199,7 @@ export const kilnExtraCSS = `/* ================================================
 .home-product-image{position:relative; aspect-ratio:1/1; display:grid; place-items:center; overflow:hidden}
 .home-product-image::before{
   content:""; position:absolute; inset:16%;
-  background:radial-gradient(circle at 50% 56%, rgba(255,201,120,.2), rgba(217,114,47,.06) 44%, transparent 68%);
+  background:radial-gradient(circle at 50% 56%, rgba(0,102,166,.2), rgba(0,91,149,.06) 44%, transparent 68%);
   opacity:.55; transition:opacity .5s var(--ease);
 }
 .card:hover .home-product-image::before{opacity:1}
@@ -1246,7 +1212,7 @@ export const kilnExtraCSS = `/* ================================================
 .home-product-image img{
   position:relative; z-index:2; width:66%;
   transition:transform .55s var(--ease);
-  filter:drop-shadow(0 0 1.2px rgba(255,201,120,.4)) drop-shadow(0 14px 24px rgba(0,0,0,.7));
+  filter:drop-shadow(0 0 1.2px rgba(0,102,166,.4)) drop-shadow(0 14px 24px rgba(0,0,0,.7));
 }
 .card:hover .home-product-image img{transform:translateY(-6px)}
 /* 没有图的产品卡给的是 kiln 的 .plot 空框（渲染器不加 .card--plot），
@@ -1263,10 +1229,10 @@ export const kilnExtraCSS = `/* ================================================
 @media (max-width:640px){
   .filters.home-filters{
     flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-    padding-bottom:.2rem; scrollbar-width:thin; scrollbar-color:rgba(239,231,221,.25) transparent;
+    padding-bottom:.2rem; scrollbar-width:thin; scrollbar-color:rgba(20,43,65,.25) transparent;
   }
   .filters.home-filters::-webkit-scrollbar{height:6px}
-  .filters.home-filters::-webkit-scrollbar-thumb{background:rgba(239,231,221,.22)}
+  .filters.home-filters::-webkit-scrollbar-thumb{background:rgba(20,43,65,.22)}
   .filters.home-filters::-webkit-scrollbar-track{background:transparent}
   .filters.home-filters button{flex:0 0 auto; white-space:nowrap}
 }
@@ -1304,8 +1270,8 @@ export const kilnExtraCSS = `/* ================================================
 .inquiry-list .bd>h3{
   margin:0 0 1.1rem; padding-bottom:.75rem;
   border-bottom:1px solid var(--hair-2);
-  font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; font-weight:400;
-  color:rgba(239,231,221,.42);
+  font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; font-weight:400;
+  color:rgba(20,43,65,.42);
 }
 .inquiry-list ul{list-style:none; margin:0; padding:0}
 .inquiry-list li{
@@ -1320,7 +1286,7 @@ export const kilnExtraCSS = `/* ================================================
 .inquiry-list li a:hover{color:var(--glow)}
 .inquiry-list label{
   display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap;
-  font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; color:rgba(239,231,221,.42);
+  font-size:.78rem; letter-spacing:.18em; text-transform:uppercase; color:rgba(20,43,65,.42);
 }
 .inquiry-list input[type="number"]{
   width:4.6rem; padding:.42rem .5rem; text-align:right;
@@ -1328,15 +1294,15 @@ export const kilnExtraCSS = `/* ================================================
   background:var(--char); border:1px solid var(--hair); border-radius:0;
   transition:border-color .3s var(--ease);
 }
-.inquiry-list input[type="number"]:focus{outline:none; border-color:rgba(255,201,120,.5)}
+.inquiry-list input[type="number"]:focus{outline:none; border-color:rgba(0,102,166,.5)}
 /* 移除按钮：像文字链接那样，靠细线与字距表达，hover 才亮 */
 .inquiry-list button[data-rfq-remove]{
   justify-self:end; padding:0 0 .2rem;
-  font-size:.62rem; letter-spacing:.18em; text-transform:uppercase;
-  color:rgba(239,231,221,.45); border-bottom:1px solid var(--hair);
+  font-size:.78rem; letter-spacing:.18em; text-transform:uppercase;
+  color:rgba(20,43,65,.45); border-bottom:1px solid var(--hair);
   transition:color .3s var(--ease), border-color .3s var(--ease);
 }
-.inquiry-list button[data-rfq-remove]:hover{color:var(--glow); border-bottom-color:rgba(255,201,120,.55)}
+.inquiry-list button[data-rfq-remove]:hover{color:var(--glow); border-bottom-color:rgba(0,102,166,.55)}
 
 @media (max-width:640px){
   .inquiry-list li{grid-template-columns:minmax(0,1fr) auto; row-gap:.6rem}
@@ -1370,7 +1336,7 @@ export const kilnExtraCSS = `/* ================================================
 }
 .trade-public-grid article:hover{background:var(--char-3)}
 .trade-public-grid article small{
-  font-size:.6rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember);
+  font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; color:var(--ember);
 }
 .trade-public-grid article h3{font-size:1rem; letter-spacing:.005em; line-height:1.35; color:var(--ash)}
 .trade-public-grid article p{
@@ -1378,13 +1344,13 @@ export const kilnExtraCSS = `/* ================================================
 }
 .trade-public-grid article a{
   align-self:flex-start; margin-top:auto; padding-bottom:.3rem;
-  font-size:.66rem; letter-spacing:.18em; text-transform:uppercase; color:var(--glow);
-  border-bottom:1px solid rgba(255,201,120,.4);
+  font-size:.78rem; letter-spacing:.18em; text-transform:uppercase; color:var(--glow);
+  border-bottom:1px solid rgba(0,102,166,.4);
   transition:border-color .3s var(--ease);
 }
 .trade-public-grid article a:hover{border-bottom-color:var(--glow)}
 .trade-public-grid .trade-expiry{
-  font-size:.62rem; letter-spacing:.14em; color:rgba(239,231,221,.34); white-space:normal;
+  font-size:.78rem; letter-spacing:.14em; color:rgba(20,43,65,.34); white-space:normal;
 }
 
 /* 两个 .tlink（客户专属入口 / 申请渠道合作）的横排 */
@@ -1464,6 +1430,142 @@ export const kilnExtraCSS = `/* ================================================
    这里按实际素材的比例放宽到 16/10；换回竖构图素材时删掉这一条即可。 */
 .hero-art{aspect-ratio:16/10}
 
+
+/* Corporate composition: one width scale, compact rhythm, uncropped product media. */
+body{overflow-x:clip;font-size:16px;line-height:1.65}
+h1,h2,h3,h4{font-weight:600;text-wrap:balance}
+.wrap{width:100%}
+.wrap>*{min-width:0}
+.caps{font-size:.75rem;letter-spacing:.12em;font-weight:600}
+.h-sec{font-size:clamp(1.7rem,2.6vw,2.5rem);letter-spacing:-.025em;line-height:1.2}
+.lede{font-size:1rem;line-height:1.8}
+.btn{min-height:44px;padding:.8rem 1.35rem;border-radius:3px;font-size:.82rem;font-weight:600;letter-spacing:.02em;text-transform:none;justify-content:center;transition:background .2s,border-color .2s,color .2s}
+.btn-ember{background:#006BA6;color:#fff;box-shadow:none}
+.btn-ember:hover{background:#005787;box-shadow:none}
+.tlink{font-size:.82rem;letter-spacing:.025em;text-transform:none;color:var(--ember)}
+.nav{background:#fffffffa;box-shadow:0 2px 14px #142b4108}
+.nav-in{height:80px;gap:24px}
+.brand{min-width:0;align-items:center;gap:12px}
+.brand::before{content:'';width:7px;height:30px;background:#0079b8;flex:none}
+.brand b{font-size:1.05rem;line-height:1.3;overflow-wrap:anywhere;max-width:260px;letter-spacing:-.025em}
+.brand i{display:none}
+.nav-links{gap:22px;letter-spacing:0;font-size:.86rem;text-transform:none;white-space:nowrap}
+.nav-links a{font-weight:500;color:#30475B}
+.nav-links a[aria-current='page']::after{height:3px}
+.nav-cta .btn,.language summary{min-height:40px;padding:.55rem .85rem;font-size:.78rem;letter-spacing:.025em;text-transform:none}
+.nav-cta .nav-contact{display:none}
+.language li>a{font-size:.8rem;letter-spacing:.025em}
+.language ul{box-shadow:0 12px 28px #142b4118;background:#fff}
+.nav-drawer{background:#fff}
+.nav-drawer a,.nav-drawer li.sub>a{font-size:.95rem;letter-spacing:0;text-transform:none}
+.hero{background:#0D2D47;color:#fff;--muted:#BCD0DE;--ash:#fff;--hair:#ffffff30;--hair-2:#ffffff20;--ember:#70C9F5}
+.hero::before,.hero::after,.hero-art::before,.page-head::before,.close::before,.card-art::before,.home-product-image::before{display:none}
+.hero-in{grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:470px;gap:56px;padding-block:52px}
+.hero-copy{padding-block:10px}
+.hero h1,.hero .slide h2,.hero--banner h2{font-size:clamp(2.2rem,3.7vw,3.55rem);font-weight:600;line-height:1.14;letter-spacing:-.035em;margin:16px 0 22px;max-width:20ch;overflow-wrap:anywhere}
+.hero-copy .lede{max-width:49ch;color:#cadbe7}
+.hero-acts{gap:20px;margin-top:30px}
+.hero-acts .btn-ember{background:#087FB9;color:#fff}
+.hero-acts .btn-ember:hover{background:#056a9e}
+.hero-acts .tlink{color:#fff;border-color:#7894ab}
+.hero-art{height:auto;max-height:none;aspect-ratio:16/10;order:0;padding:0;background:#fff;border-radius:4px;overflow:hidden;border:1px solid #ffffff30}
+.hero-art img{left:0;top:0;width:100%;height:100%;object-fit:contain;filter:none;animation:none}
+.hero-art.scene-visual img{object-fit:cover}
+.hero-caption{display:block;left:0;bottom:0;right:0;padding:12px 18px;background:#0d2d47d9;color:#fff;font-size:.75rem;letter-spacing:.035em;text-transform:none}
+.hero-foot{padding-block:14px;min-height:52px}
+.hero-note{font-size:.72rem;letter-spacing:.045em;color:#a9c5d8}
+.hero-controls,.hero-controls [data-slide-count]{color:#dcebf5}
+.hero-controls button{color:#fff}
+.creds{background:#F3F7FA;border-color:#e1e9ef}
+.creds-in{margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.cred{padding:24px 22px}
+.cred:first-child{padding-left:0}
+.cred dt{font-size:.72rem;color:#526579;letter-spacing:.08em;margin-bottom:8px}
+.cred dd{font-size:.95rem;font-weight:500;line-height:1.5;overflow-wrap:anywhere}
+.cred dd small{font-size:.75rem}
+.home-page>.section{padding-block:64px}
+.home-page>.home-collection{padding-block:64px;background:#fff}
+.home-page>.company-intro{background:#f3f7fa}
+.home-page>.company-intro .sec-head{margin-bottom:0}
+.sec-head{gap:28px;margin-bottom:28px;align-items:end}
+.sec-head .t{max-width:780px}
+.sec-head .lede{margin-top:14px}
+.sec-head>.btn{flex:none}
+.grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;border:0;background:none;box-shadow:none}
+.grid>*{box-shadow:none;min-width:0}
+.home-collection .grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.card{background:#fff;border:1px solid #E0E8EE;border-radius:4px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.card:hover{background:#fff;border-color:#a3c7dc;box-shadow:0 8px 24px #142b410a}
+.card-art,.home-product-image{aspect-ratio:4/3;background:#F5F8FA;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.card-art img,.home-product-image img{width:88%;height:88%;max-width:100%;max-height:100%;object-fit:contain;filter:none}
+.card:hover .card-art img,.card:hover .home-product-image img{transform:none}
+.card-body{padding:18px 20px 20px;gap:7px;min-height:100px;border-color:#e4ebf0}
+.card h3{font-size:1rem;font-weight:600;line-height:1.45;overflow-wrap:anywhere}
+.card .spec{font-size:.8rem;letter-spacing:0;color:#526579;line-height:1.6}
+.card-cat{font-size:.72rem;letter-spacing:.06em}
+.plot{font-size:.78rem;color:#526579;letter-spacing:.02em;aspect-ratio:auto;min-height:70px}
+.filters{gap:8px;margin-bottom:24px}
+.filters button{font-size:.82rem;letter-spacing:0;text-transform:none;border-radius:3px;padding:.65rem 1rem}
+.filters button[aria-pressed='true']{background:#006BA6;color:white;border-color:#006BA6}
+.process{border:0;background:#F3F7FA;border-radius:4px}
+.process-head{padding:32px;gap:32px}
+.steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+.step{padding:28px 32px;border-color:#d8e4ec}
+.step .idx{font-size:1.8rem;line-height:1;color:#0076B8;letter-spacing:-.05em;margin-bottom:18px}
+.step h3{font-size:1.05rem;margin:0}
+.posts{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:24px;border:0}
+.post{border:1px solid #dfe8ee!important;border-radius:4px;padding:28px;background:#fff}
+.post h3{font-size:1.2rem;max-width:48ch}
+.post p{max-width:85ch}
+.post .rd{font-size:.8rem;letter-spacing:.025em;color:#006BA6}
+.trade-section{background:#f3f7fa;border-top:1px solid #e1e9ef}
+.trade-section .split{align-items:center}
+.trade-public-grid:empty{display:none}
+.trade-section [role='status']:empty{display:none}
+.trade-public-grid article{background:#fff;border-color:#dce6ed}
+.trade-public-grid article h3{font-size:1.05rem}
+.close{background:#0D2D47;color:#fff;padding-block:56px;--muted:#BDD1DF;--ash:#fff;--hair:#ffffff40;--ember:#78CDF5;--glow:#fff}
+.close h2{font-size:clamp(1.85rem,3vw,2.8rem)}
+.close .btn:not(.btn-ember){color:white}
+.close .caps{color:#8bd4fa}
+footer{background:#082238;--ash:#fff;--ink:#c6d7e4;--muted:#adc1d1;--hair:#ffffff26;--hair-2:#ffffff16;--ember:#81ccf4;--glow:#fff}
+.foot-in{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr));gap:40px}
+.foot-in h4{color:#fff;font-size:.8rem;letter-spacing:.04em}
+.foot-in a,.foot-note{font-size:.87rem}
+.foot-base{font-size:.72rem;letter-spacing:.02em;color:#adc1d1;text-transform:none}
+.page-head{background:#F3F7FA;padding-block:36px 40px}
+.page-head h1{font-size:clamp(1.85rem,3vw,2.75rem);font-weight:600;letter-spacing:-.025em}
+.page-head .lede{margin-top:16px}
+.crumbs{font-size:.8rem;letter-spacing:0}
+.pd{gap:48px}
+.pd-art{background:#F5F8FA;aspect-ratio:4/3;border-color:#dce6ed;border-radius:4px}
+.pd-art img{width:88%;height:88%;object-fit:contain;filter:none}
+.thumbs button{width:72px;background:#f5f8fa;border-radius:3px;overflow:hidden}
+.thumbs button[aria-pressed='true']{background:#eaf3f9;border-color:#006BA6}
+.thumbs button img{width:88%;height:88%;object-fit:contain}
+.pd-lead{font-weight:600;color:#006BA6}
+#inquiry .split{grid-template-columns:minmax(0,1.65fr) minmax(260px,.85fr);gap:40px}
+.form{background:#fff;padding:28px;border:1px solid #dce6ed;border-radius:4px}
+.field label,.field .field-label{font-size:.82rem;letter-spacing:0;text-transform:none;color:#30475B;font-weight:500}
+.field input,.field select,.field textarea{font-size:.95rem;background-color:#fff;border:1px solid #b9cbd7;border-radius:3px;color:#142B41;min-width:0;width:100%}
+.field textarea{min-height:100px}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#0076B8;outline:2px solid #0076b826;outline-offset:1px}
+.field .hint,.check,.file-name{font-size:.8rem;color:#526579;letter-spacing:0}
+.inquiry-list{background:#F3F7FA;border:1px solid #dce6ed;border-radius:4px}
+.inquiry-list h3{font-size:1.1rem}
+.rfq-empty{font-size:.9rem}
+.service-widget summary{background:#006BA6;color:#fff;border:0;border-radius:4px;font-size:.82rem;letter-spacing:0;box-shadow:0 4px 14px #142b4124}
+.service-widget>div{background:#fff;border-radius:4px;box-shadow:0 8px 28px #142b411a}
+.analytics-consent{box-shadow:0 -2px 18px #142b410d;background:#fff;border-top:1px solid #dce6ed;padding:12px var(--pad)}
+.analytics-consent::before{display:none}
+.analytics-consent p{font-size:.8rem}
+.analytics-consent button{font-size:.78rem;letter-spacing:0;border-radius:3px}
+.analytics-consent button[data-analytics-choice='yes']{background:#006BA6;color:#fff}
+@media(min-width:1121px){.brand{max-width:290px}.nav-links{margin-left:auto}}
+@media(max-width:1120px){.nav-in{height:72px}.hero-in{gap:32px;min-height:410px}.nav-cta .btn{font-size:.76rem}.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.foot-in{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(-n+2){border-bottom:0}.step:nth-child(2){border-right:1px solid #d8e4ec}}
+@media(max-width:880px){.hero-in{grid-template-columns:minmax(0,1fr);padding-block:36px;gap:28px}.hero-copy{padding:0}.hero h1,.hero .slide h2{max-width:24ch}.hero-art{order:0;aspect-ratio:16/9;width:100%;max-width:620px;max-height:none}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:20px}.cred:nth-child(3){border-left:0}.cred:first-child{padding-left:20px}.grid,.home-collection .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-page>.section,.home-page>.home-collection{padding-block:44px}.process-head{grid-template-columns:1fr;gap:16px;padding:24px}.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.step{padding:24px 20px}.pd{gap:28px}#inquiry .split{grid-template-columns:minmax(0,1fr)}.rail-wrap{position:static}.sec-head{flex-wrap:wrap}.trade-section .split{grid-template-columns:1fr;gap:24px}}
+@media(max-width:560px){.nav-in{height:68px;gap:12px}.brand b{font-size:.88rem;max-width:140px}.brand::before{width:4px;height:24px}.nav-cta{gap:7px}.nav-cta>.btn-ember{padding:8px 10px;max-width:126px;line-height:1.25;font-size:.72rem}.language summary{padding:8px;font-size:.72rem}.nav-burger{width:36px;height:38px;flex:none}.hero-in{padding-block:32px;gap:26px}.hero h1,.hero .slide h2{font-size:2.2rem}.hero-art{aspect-ratio:4/3}.hero-caption{font-size:.78rem;padding:9px 12px}.hero-foot{gap:12px}.hero-note{max-width:100%;overflow-wrap:anywhere}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:18px 12px}.cred:first-child{padding-left:12px}.cred dd{font-size:.86rem}.cred dt{font-size:.78rem}.grid,.home-collection .grid{grid-template-columns:minmax(0,1fr);gap:20px}.card-art,.home-product-image{aspect-ratio:3/2}.card-body{min-height:0}.sec-head{display:block}.sec-head>.btn{margin-top:20px}.steps{grid-template-columns:1fr}.step,.step:nth-child(2){border-right:0;border-bottom:1px solid #d8e4ec;display:flex;gap:22px;align-items:center;padding:22px 24px}.step:last-child{border-bottom:0}.step .idx{margin:0;font-size:1.5rem}.step h3{font-size:1rem}.form{padding:20px}.foot-in{grid-template-columns:1fr;gap:28px}.close{padding-block:44px}.post{padding:24px}.btn{padding:.75rem 1.1rem}.service-widget{bottom:12px;right:12px}}
+@media(max-width:380px){.brand b{max-width:80px;font-size:.78rem}.brand{gap:8px}.nav-in{gap:6px}.nav-cta>.btn-ember{max-width:108px;font-size:.78rem}.language summary{padding:7px}.nav-cta{gap:5px}}
 `;
 
 export const siteCSS = kilnCSS + kilnExtraCSS;

@@ -13,8 +13,8 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const src = path.join(here, '..', 'src');
 const parts = [
-  { file: 'kiln.css', note: 'kiln 设计系统（与 H:/Workbuddy/2026-10-02-18-17-59/opctools-redesign/assets/kiln.css 逐字一致，勿在此手改）' },
-  { file: 'kiln-extra.css', note: 'kiln 之外的 CMS 组件层（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页）' },
+  { file: 'kiln.css', note: '企业官网共享设计系统' },
+  { file: 'kiln-extra.css', note: 'CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页）' },
 ];
 
 // 普通模板字面量（非 String.raw）：先转义反斜杠，再转义反引号与 ${，顺序不可颠倒。
