@@ -647,6 +647,34 @@
 
 ---
 
+## §13 执行记录
+
+### 13.1 S0 / S5 已完成（2026-10-09）
+
+| 切片 | 提交 | 内容 | 证据 |
+| --- | --- | --- | --- |
+| **S0** | `687fff7` | 收口树上未提交的工业风改造（5 文件 +603/−399）为可回归基线 | `pnpm test` 99/97/0/2；`pnpm -r typecheck` 6/6 |
+| **S5** | `a3655b2` | 六项裁决 Q1–Q6 执行：令牌改值 + CTA 橙 + 容器 1360 + 间距 64–88 + 首页 4 列 + 卡片 1:1 + Hero 520 | `.runtime/s5-verify.mjs` **25/25**；旧调色板**全族零残留**；`css:build` 幂等（SHA 不变）；宽度矩阵 320–1440 **无横向溢出**、每页 1 个 `<h1>` |
+
+**S5 的关键实现决策（供评审）**：
+- 企业版覆盖块在 `kiln-extra.css` 文件末，**权重高于 `kiln.css` 的基线定义** ⇒ `.btn-ember`、`.wrap`、`.section`、`.home-collection .grid`、`.card-art` 等改动必须落在 **kiln-extra 的覆盖块**，只改基线不生效。
+- 首页产品区补进 `≤1120` 的降列规则：原先只有 `.grid` 被降到 3 列，`.home-collection .grid` 因特异性更高而**漏降**（桌面改 4 列后若不同步修，881–1120 段会一直是 4 列）。
+- 旧调色板一次性迁净（含惰性规则）：`rgba(20,43,65,…)`、`rgba(0,91,149,…)`、`rgba(0,102,166,…)`、`#142b41XX`、深色底提亮档 `#70C9F5/#78CDF5/#81ccf4`。目的是让「旧调色板零残留」成为可核验的不变量。
+
+### 13.2 三个工具坑（本机实测，写进规范避免重踩）
+
+1. **`:55432` 不等于本项目的库。** `.runtime/render-preview.mjs` 连库报 `InitializeSessionUserId` 失败（连接串里的 `suns` 角色在该实例上不存在）⇒ 端口上跑的可能不是 SUNS 的 `.runtime/pg-data`。**处置**：本轮改用**离线快照渲染**（`.runtime/s5-render-offline.mjs` 读 `.runtime/industrial-ui/documents.json` 的 15 条真实生产 Document），不连库、不连生产、不碰其他工作区的 PG。**Do not** 为了跑预览去动 `:55432` 上的实例。
+2. **CDP 直连 `/json/new` 目标会在导航时失效**：`.runtime/industrial-ui/capture.mjs` 报 `-32000 Inspected target navigated or closed`。**处置**：改用**浏览器级 WS + `Target.attachToTarget(flatten:true)` + `sessionId`**，并等 `Page.loadEventFired` 而非定时 sleep —— 新脚本 **`.runtime/s5-probe.mjs`**（支持 `--widths=` 与 `--shot=`）。后续 §9 V7 的宽度矩阵建议直接用这个脚本。
+3. **Chrome CLI 的 `--window-size` 不等于布局视口**：`--screenshot --window-size=390,1100` 会**按更宽的视口排版再裁成 390**，看起来像横向溢出（实测 `scrollWidth === clientWidth`，是假象）。**移动端判定必须用 CDP `Emulation.setDeviceMetricsOverride`**，不能用 CLI 截图。
+
+### 13.3 尚未做（按切片顺序）
+
+- **S1（G0，🔴 需 L1）**：首页实体化（Q6 = 先 en 试点）+ `homepage()` 改按块顺序 + `trust_bar`/`process_steps` 块 + BlockEditor 显示/隐藏。**动手前先跑「核查 A」**（`content_blocks` 是否有启用行）。
+- **S2/S3/S4/S6/S7**、**S8（部署，🔴 需授权）**：见 §8.1。
+- **生产可见性**：本轮只到「本地真实内容预览」，**未部署**。公开站仍是旧皮肤，需 S8 授权后才会变。
+
+---
+
 ## 附录 A：事实来源
 
 | 事实 | 来源 |
