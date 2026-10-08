@@ -236,6 +236,37 @@ kiln 原版不暴露是因为它的素材是「透明底 + 产品居中」的抠
 （命中位置越靠前越容易触发：`KILN` 在文件头，于是三个"存在性"断言全假红）。
 一律改成文件级 `grep -c -- 模式 文件`，不给管道留机会。**这是"验收脚本假红"这一类问题的通用形态。**
 
+### 8.3 图片入库：生产执行记录（2026-10-09，用户授权后执行）
+
+**前置复核**（距上次已 6 天）：生产健康 200；设计源 19 张 clean 图仍在；只读预检 `slug 命中 19/19`、
+`en 语言可读=yes`、`Origin` 被生产接受、**零写入**。
+
+| 步骤 | 结果 |
+| --- | --- |
+| 金丝雀 `--only latex-rubber-gloves --publish` | 上传 `redesign-gloves.png` → `e4283098`（900²）；老图 5 行降为附图；8 个语言版本重发；站级重建入队 |
+| 金丝雀公网确认 | `/en/ /de/ /it/products/latex-rubber-gloves` 均含新图 `c8206e38`；主图位实测 `<div class="pd-art" id="stage"><img src="/media/c8206e38….png" alt="Latex rubber gloves" fetchpriority="high">` |
+| 全量入库 `--apply` | **上传 17 · 复用 2 · 新挂主图 18**（复用 = 金丝雀的 gloves + 一次网络中断后重跑时已在库的 reactor-open ⇒ 幂等生效） |
+| 全量发布 `--apply --publish` | **上传 0 · 复用 19 · 新挂 0**；19 × 8 语言版本重发 + 站级重建 |
+| 发布队列 | **162 个任务全 completed、0 failed**；站级重建 4 分钟内跑完（按 `static_routes.checksum` 只重写内容变了的 **328 页**，全站仍 3053 页） |
+| **端到端验收** `.runtime/verify-import-prod.mjs` | **PASS=209 / FAIL=0**（19 条 × 11 项）：资产 900² / 变体 8 / en alt / 挂图 main+sort_order=0 / `featured_media_id` / 老图降级未删除 / 新图 `/media/…` HTTP 200 / **公网 en+de+ja 三语言页面都含新图** |
+
+**两个过程坑（值得记）**
+
+1. **Node 的 `fetch` 默认走本机 Clash 代理**（环境里 `HTTPS_PROXY=http://127.0.0.1:7897` +
+   `NODE_USE_ENV_PROXY=1`）。小请求（预检、单张小图）能过，**大图上传会被对端掐断**
+   （`UND_ERR_SOCKET: other side closed`，socket 指向 `127.0.0.1:7897`）。
+   ⇒ 打生产批量上传前先清掉 `http_proxy/HTTPS_PROXY/NODE_USE_ENV_PROXY`（直连实测 health 200 / 0.375s）。
+   脚本幂等，中断重跑不产生重复资产（实测已入库的那张走 `reuse` 分支）。
+2. **判据写错会造成假红**：页面 URL 用的是媒体的 **`object_key`**（`/media/<uuid>.png|jpg`），不是资产 **id**。
+   我一开始用"资产 id 是否出现在页面里"当判据，得到"新图 0 处"的错误结论，**差点把正确的链路判成故障**。
+   正确判据：先取 `object_key`，再核页面。
+
+**素材观感说明**：19 张全部是 RGBA 带透明通道（实测 PNG `color type=6`）。列表页上棉签袋、吸头盒等
+**看着像"浅色底块"的其实是产品本体**（浅色物体落在深色卡片上），与设计稿模板渲染一致，不是抠图残留。
+
+**生产侧观察（供后续排查参考）**：站级重建期间 worker 单进程 RSS 涨到 606MB（`suns-worker` 的
+`max_memory_restart` 阈值 367MB 却未触发重启），`free` 显示 1963MB 里已用 1842MB；重启 worker 后降到 ~30MB。
+
 ## 9. 上生产后暴露的**内容**缺口（代码与皮肤都没问题，但站还"没做完"）
 
 换肤把版式问题解决了，剩下的观感问题全部来自**内容字段为空**。公网实测证据：
