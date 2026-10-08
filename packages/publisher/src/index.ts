@@ -5,7 +5,7 @@ import {outputRoot} from './files';
 import { createHash } from 'node:crypto';
 import type { Job } from 'bullmq';
 import { pool,query,siteContext,type Document,type Row } from '@suns/domain';
-import { renderHTML,systemDocument,siteCSS,siteJS,escape } from '@suns/ui';
+import { renderHTML,systemDocument,siteCSS,siteJS,escape,words,homeWords,tradeText } from '@suns/ui';
 import { writeAtomic,removeRoute,routeFile,removeSitemap } from './files';
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 
@@ -40,6 +40,40 @@ async function writeDocument(doc:Document,jobId:string){
 }
 async function removePublished(route:string,jobId:string){await query(`INSERT INTO publish_job_routes(publish_job_id,route,action,status,started_at) VALUES($1,$2,'delete','processing',now()) ON CONFLICT(publish_job_id,route,action) DO UPDATE SET status='processing'`,[jobId,route]);await removeRoute(route);await query('DELETE FROM published_documents WHERE route=$1',[route]);await query("UPDATE static_routes SET status='removed',last_publish_job_id=$2 WHERE route=$1",[route,jobId]);await query(`UPDATE publish_job_routes SET status='completed',finished_at=now() WHERE publish_job_id=$1 AND route=$2 AND action='delete'`,[jobId,route]);}
 async function store(doc:Document,jobId:string){const prior=(await query('SELECT snapshot FROM published_documents WHERE route=$1',[doc.route]))[0]?.snapshot;const clean=(v:any)=>{const x=JSON.parse(JSON.stringify(v));delete x.updatedAt;return x;};if(prior&&isDeepStrictEqual(clean(prior),clean(doc)))doc.updatedAt=prior.updatedAt;await writeDocument(doc,jobId);if(prior&&isDeepStrictEqual(prior,JSON.parse(JSON.stringify(doc))))return;await query(`INSERT INTO published_documents(route,locale_id,entity_type,entity_id,snapshot,job_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(route) DO UPDATE SET locale_id=EXCLUDED.locale_id,entity_type=EXCLUDED.entity_type,entity_id=EXCLUDED.entity_id,snapshot=EXCLUDED.snapshot,published_at=now(),job_id=EXCLUDED.job_id`,[doc.route,doc.localeId,doc.entityType,doc.entityId,JSON.stringify(doc),jobId]);}
+// 已发布文档 → 卡片形状（产品区 / 文章区 / 关联产品共用）
+const cardOf=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,title:d.title,description:d.description,media:d.media,applications:d.product?.applications||[]});
+
+/** 首页系统文档的板块序列（2026-10-09 S1）。
+ *
+ * 为什么顺序在这里而不是在 packages/ui：首页在「某条实体页占用同 route」之前，是由发布器生成的
+ * system 文档（见下方 refreshSite）。既然板块顺序要变成数据（这样运营在后台排序/隐藏才生效），
+ * 生成这份数据的责任就在发布器 —— 前端从此只负责「按 body 数组顺序渲染」。
+ *
+ * 与旧实现的等价性：旧 homepage() 写死为
+ *   creds → product_grid → company_intro → process → case_studies → latest_articles → trade → cta
+ * 这里逐项对齐（包括文章/案例块的眉标与「查看全部」按钮文案），保证系统首页的观感不回退。
+ *
+ * 导出以便离线验证：不连数据库也能用夹具渲染这一段，断言顺序与显示/隐藏行为。 */
+export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],content:Document[],prefix:string){
+ const zh=locale==='zh';
+ const copy=homeWords[locale]||homeWords.en;
+ const w0=words[locale]||words.en;
+ const w=(key:string)=>tradeText(locale,key);
+ const trust:{dt:string;dd:string;small?:string}[]=copy.proof.map((label,i)=>({dt:w(['materials','process','markets'][i]||'materials'),dd:label}));
+ const reach=ctx.site.company_email||ctx.site.company_phone;
+ if(reach)trust.push({dt:w0[3],dd:String(reach),small:w0[4]});
+ return [
+  {type:'trust_bar',data:{title:ctx.site.site_name||'',items:trust.slice(0,4)}},
+  {type:'product_grid',data:{title:zh?'为您的应用选择合适产品':'Glassware for your application',items:products.slice(0,6).map(cardOf)}},
+  {type:'company_intro',data:{caps:copy.intro,title:copy.introTitle,text:ctx.site.company_description||ctx.site.footer_description||''}},
+  {type:'process_steps',data:{caps:w('process'),title:w('processTitle'),description:copy.collectionText,items:['step1','step2','step3'].map(key=>({title:w(key)}))}},
+  {type:'case_studies',data:{caps:w0[0],title:zh?'应用与案例':'Applications & cases',action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType==='case_study').slice(0,3).map(cardOf)}},
+  {type:'latest_articles',data:{caps:copy.craft,title:zh?'技术与应用知识':'Technical knowledge',description:copy.craftText,action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType!=='case_study'&&x.route!==prefix).slice(0,3).map(cardOf)}},
+  {type:'market_procurement',data:{}},
+  {type:'cta',data:{title:zh?'一起讨论您的需求':'Tell us what you need',label:zh?'联系我们':'Contact our team',url:prefix+'/contact'}},
+ ];
+}
+
 async function refreshSite(jobId:string){
  await writeAtomic('assets/site.css',siteCSS);await writeAtomic('assets/site.js',siteJS);
  const locales=await query('SELECT * FROM locales WHERE is_enabled ORDER BY sort_order');const changed:string[]=[];
@@ -57,13 +91,13 @@ async function refreshSite(jobId:string){
  for(const orphan of orphans){await removePublished(String(orphan.route),jobId);changed.push(String(orphan.route));}
  const disabled=await query('SELECT route FROM published_documents WHERE locale_id NOT IN(SELECT id FROM locales WHERE is_enabled)');for(const x of disabled){await removePublished(x.route,jobId);changed.push(x.route);}
  for(const locale of locales){const ctx=await siteContext(locale.id);const released=(await query("SELECT snapshot FROM published_documents WHERE locale_id=$1 AND entity_type<>'system' ORDER BY published_at DESC",[locale.id])).map(r=>r.snapshot as Document);
-  const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||''));const card=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,title:d.title,description:d.description,media:d.media,applications:d.product?.applications||[]});
+  const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||''));const card=cardOf;
   for(const doc of released){Object.assign(doc,ctx);if(doc.entityType==='taxonomy_term_translations')doc.related=released.filter(d=>d.termIds?.includes(doc.groupId||'')).map(card);else doc.related=doc.related.filter(r=>released.some(d=>d.route===r.route));doc.alternates=(await query(`SELECT p.route AS path,l.code AS locale,l.hreflang FROM published_documents p JOIN locales l ON l.id=p.locale_id WHERE l.is_enabled AND p.entity_type=$1 AND (p.snapshot->>'groupId')=$2 ORDER BY l.sort_order`,[doc.entityType,(doc as any).groupId??doc.entityId]));if(!doc.alternates.length)doc.alternates=[{path:doc.route,locale:doc.locale,hreflang:locale.hreflang}];
    for(const b of doc.body){if(['product_grid','latest_articles'].includes(b.type)&&(!b.data.items?.length||b.data._autoItems)){const source=b.type==='product_grid'?products:content;b.data.items=source.filter(x=>x.route!==doc.route).slice(0,Math.min(24,Number(b.data.limit)||6)).map(card);b.data._autoItems=true;}}
    await store(doc,jobId);changed.push(doc.route);
   }
   const zh=locale.code==='zh',prefix='/'+locale.code;const auto:Document[]=[];
-  auto.push(systemDocument(locale,ctx,prefix,ctx.site.site_title||ctx.site.site_name,[{type:'product_grid',data:{title:zh?'为您的应用选择合适产品':'Glassware for your application',items:products.slice(0,6).map(card)}},{type:'case_studies',data:{title:zh?'应用与案例':'Applications & cases',items:content.filter(x=>x.contentType==='case_study').slice(0,3).map(card)}},{type:'latest_articles',data:{title:zh?'技术与应用知识':'Technical knowledge',items:content.filter(x=>x.contentType!=='case_study'&&x.route!==prefix).slice(0,3).map(card)}},{type:'cta',data:{title:zh?'一起讨论您的需求':'Tell us what you need',label:zh?'联系我们':'Contact our team',url:prefix+'/contact'}}]));
+  auto.push(systemDocument(locale,ctx,prefix,ctx.site.site_title||ctx.site.site_name,systemHomeBlocks(locale.code,ctx,products,content,prefix)));
   for(const [name,docs,title] of [['products',products,zh?'产品中心':'Products'],['blog',content.filter(x=>x.route!==prefix),zh?'知识中心':'Knowledge']] as [string,Document[],string][]){const count=Math.max(1,Math.ceil(docs.length/24));for(let page=0;page<count;page++){const route=prefix+'/'+name+(page?'/page/'+(page+1):'');const body:any[]=[{type:'product_grid',data:{title,items:docs.slice(page*24,(page+1)*24).map(card)}}];if(page>0)body.push({type:'cta',data:{title:zh?'上一页':'Previous page',label:'←',url:prefix+'/'+name+(page===1?'':'/page/'+page)}});if(page+1<count)body.push({type:'cta',data:{title:zh?'下一页':'Next page',label:'→',url:prefix+'/'+name+'/page/'+(page+2)}});auto.push(systemDocument(locale,ctx,route,title,body));}}
   auto.push(systemDocument(locale,ctx,prefix+'/contact',zh?'联系我们':'Contact',[{type:'contact_form',data:{title:zh?'说说您的项目':'Let’s discuss your project'}}]));
   auto.push(systemDocument(locale,ctx,prefix+'/search',zh?'站内搜索':'Search',[{type:'search',data:{}}]));

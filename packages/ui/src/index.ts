@@ -6,6 +6,10 @@ import {words,homeWords} from './words';
 export {siteCSS} from './styles';
 export {siteJS} from './browser';
 export {tradePortalHTML} from './trade-portal';
+// 2026-10-09 S1：文案表与 tradeText 对外导出，供发布器组装「首页系统文档」的板块序列
+// （原先顺序写死在 homepage() 里；搬到发布器后，前端只负责「按 body 顺序渲染」）。
+export {words,homeWords} from './words';
+export {tradeText} from './trade';
 export const escape=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 export function safeURL(v:unknown,fallback='#'){if(typeof v!=='string'||/[\u0000-\u0020\\]/.test(v))return fallback;if(v.startsWith('/')&&!v.startsWith('//'))return v;if(/^https?:\/\//i.test(v)||/^mailto:[^@]+@[^@]+$/i.test(v)||/^tel:[+\d()-]+$/i.test(v))return v;return fallback;}
 const t=(d:Document,i:number)=>(words[d.locale]||words.en)[i];
@@ -167,33 +171,30 @@ function homeCollection(d:Document,block?:Block){
  return section(wrap(secHead({caps:homeWordsFor(d).collection,title:block?.data?.title||t(d,0),description:homeWordsFor(d).collectionText,action:btn('/'+d.locale+'/products',homeWordsFor(d).allProducts)})+filters+grid),{tight:true,cls:'home-collection'});
 }
 const homeWordsFor=(d:Document)=>homeWords[d.locale]||homeWords.en;
+// 2026-10-09 S1：首页从「顺序写死在代码里」改为「按 body 数组顺序渲染」。
+// 为什么必须这样改：旧实现用 d.body.find(type===...) 把产品区/案例/文章捞出来钉死在固定位置，
+// 运营在后台按 ↑/↓ 调顺序对它们完全无效，也无法关掉信任带与采购流程（那两块当时由代码生成）。
+// 三条统一约定：
+//  ① 任何块都可以用 data.hidden=true 隐藏（保留记录，便于随时恢复；不靠"删块"来表达隐藏）；
+//  ② product_grid 仍走 homeCollection() 的富卡片版式（应用筛选标签），其余交给 block() 分派；
+//  ③ 首页必须有轮播与市场块 —— .runtime/check-hooks.mjs 的蕴含规则 3 依赖它
+//     （`class="hero" data-carousel` ⇒ 必须同时出现 data-trade-public / data-trade-cards），
+//     所以 body 里没有 market_procurement 块时兜底追加一份；没有任何 cta 块时兜底 closeBlock。
 function homepage(d:Document){
- const copy=homeWordsFor(d);
- const productsBlock=d.body.find(b=>b.type==='product_grid');
- const articles=d.body.find(b=>b.type==='latest_articles');
- const cases=d.body.find(b=>b.type==='case_studies');
- const used=[productsBlock,articles,cases];
- const closing=d.body.filter(b=>b.type==='cta'&&b.data?.title);
- const remaining=d.body.filter(b=>!used.includes(b)&&b.type!=='cta');
- const creds=[...copy.proof.map((label,i)=>({dt:u(d,['materials','process','markets'][i]||'materials'),dd:label,small:''}))];
- if(d.site.company_email||d.site.company_phone)creds.push({dt:t(d,3),dd:String(d.site.company_email||d.site.company_phone),small:t(d,4)});
- const credBlock='<section class="creds" aria-label="'+escape(t(d,0))+'">'+wrap('<dl class="creds-in">'+creds.slice(0,4).map(c=>'<div class="cred"><dt>'+escape(c.dt)+'</dt><dd>'+escape(c.dd)+(c.small?' <small>'+escape(c.small)+'</small>':'')+'</dd></div>').join('')+'</dl>')+'</section>';
- const description=d.site.company_description||d.site.footer_description;
- const intro=description?section(wrap(secHead({caps:copy.intro,title:copy.introTitle,description})),{cls:'company-intro'}):'';
- const collection=homeCollection(d,productsBlock);
- const articlesBlock=Array.isArray(articles?.data?.items)&&articles.data.items.length?section(wrap(secHead({caps:copy.craft,title:articles?.data?.title||t(d,1),description:copy.craftText,action:btn('/'+d.locale+'/blog',t(d,1))})+posts(articles.data.items,d)),{tight:true}):'';
- const casesBlock=Array.isArray(cases?.data?.items)&&cases.data.items.length?section(wrap(secHead({caps:t(d,0),title:cases?.data?.title||tradeText(d.locale,'caseTitle'),action:btn('/'+d.locale+'/blog',t(d,1))})+posts(cases.data.items,d)),{tight:true}):'';
- const process=section(wrap('<div class="process"><div class="process-head"><div>'+caps(tradeText(d.locale,'process'))+h2sec(tradeText(d.locale,'processTitle'))+'</div>'+lede(copy.collectionText)+'</div><ol class="steps">'+['step1','step2','step3'].map((key,i)=>'<li class="step"><span class="idx">0'+(i+1)+'</span><h3>'+escape(tradeText(d.locale,key))+'</h3></li>').join('')+'</ol></div>'),{tight:true});
- return credBlock+collection+intro+remaining.map(b=>block(b,d)).join('')+process+casesBlock+articlesBlock+tradePublicSection(d)+(closing.length?closing.map(b=>block(b,d)).join(''):closeBlock(d));
+ const visible=d.body.filter(b=>!b.data?.hidden);
+ const has=(type:string)=>visible.some(b=>b.type===type);
+ const body=visible.map(b=>b.type==='product_grid'?homeCollection(d,b):block(b,d)).join('');
+ return body+(has('market_procurement')?'':tradePublicSection(d))+(has('cta')?'':closeBlock(d));
 }
-function closeBlock(d:Document,title?:string,text?:string){return '<section class="close">'+wrap(caps(t(d,4))+h2sec(title||t(d,4),'')+lede(text||d.site.footer_description||d.site.company_description||'')+'<div class="close-acts">'+btn('/'+d.locale+'/contact#inquiry',t(d,4),'btn-ember')+btn('/'+d.locale+'/products',t(d,0))+'</div>')+'</section>';}
+function closeBlock(d:Document,title?:string,text?:string,label?:string,url?:string,capsText?:string){
+ return '<section class="close">'+wrap(caps(capsText||t(d,4))+h2sec(title||t(d,4),'')+lede(text||d.site.footer_description||d.site.company_description||'')+'<div class="close-acts">'+btn(url||('/'+d.locale+'/contact#inquiry'),label||t(d,4),'btn-ember')+btn('/'+d.locale+'/products',t(d,0))+'</div>')+'</section>';}
 
 function block(b:Block,d:Document):string{const a=b.data||{};const type=b.type;const items=Array.isArray(a.items)?a.items:[];
  if(['hero','hero_banner','hero_slider'].includes(type)){const media=image(a);return '<section class="hero hero--banner'+(media?' has-visual':'')+'">'+wrap('<div class="hero-in"><div class="hero-copy">'+caps(d.site.site_name)+h2sec(a.title,'')+lede(a.text||a.description)+(a.url?'<div class="hero-acts">'+btn(a.url,a.label||t(d,4),'btn-ember')+'</div>':'')+'</div>'+(media?'<div class="hero-art">'+media+'</div>':'')+'</div>')+'</section>';}
  if(type==='rich_text')return section(wrap('<div class="prose">'+heading(a.title)+(a.html?sanitize(String(a.html),{allowedTags:['p','h2','h3','h4','strong','em','ul','ol','li','a','blockquote','table','thead','tbody','tr','td','th','br','figure','figcaption','cite','code'],allowedAttributes:{a:['href','title','rel']},allowedSchemes:['https','http','mailto']}):p(a.text||''))+'</div>'));
  if(type==='image_text')return section(wrap('<div class="split">'+(image(a)?'<div>'+image(a)+'</div>':'')+'<div>'+caps(labelOf(a))+h2sec(a.title)+lede(a.text||a.description)+(a.url?'<div class="btn-row" style="margin-top:1.6rem">'+btn(a.url,a.label||u(d,'readMore'))+'</div>':'')+'</div></div>'));
  if(['product_grid','category_grid','application_grid','feature_grid'].includes(type)){const head=String(a.title||'')===d.title?'':secHead({caps:d.site.site_name,title:a.title,description:a.description});return section(wrap(head+cards(items,d)),{tight:true});}
- if(['latest_articles','case_studies'].includes(type)){const head=String(a.title||'')===d.title?'':secHead({caps:d.site.site_name,title:a.title,description:a.description});return section(wrap(head+posts(items,d)),{tight:true});}
+ if(['latest_articles','case_studies'].includes(type)){if(!items.length)return '';const head=String(a.title||'')===d.title?'':secHead({caps:a.caps||d.site.site_name,title:a.title,description:a.description,action:a.action_url?btn(a.action_url,a.action_label||u(d,'readMore')):''});return section(wrap(head+posts(items,d)),{tight:true});}
  if(type==='statistics')return items.length?section(wrap('<div class="facts">'+items.map(x=>'<div class="fact"><b>'+escape(x.value||x.year||x.title)+'</b><span>'+escape(x.label||x.text||'')+'</span></div>').join('')+'</div>')):'';
  if(type==='timeline')return items.length?section(wrap(secHead({caps:d.site.site_name,title:a.title})+'<ol class="timeline">'+items.map(x=>'<li>'+(x.year?'<span class="yr">'+escape(x.year)+'</span>':'')+'<h3>'+escape(x.title||x.label||'')+'</h3>'+(x.text||x.description?'<p>'+escape(x.text||x.description)+'</p>':'')+'</li>').join('')+'</ol>')):'';
  if(['technical_specs','comparison_table'].includes(type)){const heads=Array.isArray(a.headers)?a.headers:[];return section(wrap(heading(a.title)+'<div class="table-wrap" style="margin-top:2rem"><table class="spec-table spec-table--box">'+(heads.length?'<thead><tr>'+heads.map((h:unknown)=>'<th scope="col">'+escape(h)+'</th>').join('')+'</tr></thead>':'')+'<tbody>'+((a.rows||items) as Row[]).map((r:Row)=>'<tr>'+(Array.isArray(r)?r:[r.name,r.value]).map((v:unknown,i:number)=>i===0?'<th scope="row">'+escape(v)+'</th>':'<td>'+escape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'));}
@@ -201,9 +202,24 @@ function block(b:Block,d:Document):string{const a=b.data||{};const type=b.type;c
  if(type==='video')return section(wrap(heading(a.title)+'<div class="table-wrap" style="margin-top:1.6rem"><video controls preload="metadata" src="'+escape(safeURL(a.url))+'" '+(a.poster?'poster="'+escape(safeURL(a.poster))+'" ':'')+'style="width:100%">'+escape(a.title)+'</video></div>'));
  if(type==='downloads'){const list=(items.length?items:d.documents) as Row[];return list.length?section(wrap(secHead({caps:d.site.site_name,title:a.title||t(d,13)})+'<div class="rows rows--plain">'+list.map((x:Row)=>'<a class="row" href="'+escape(safeURL(x.media_id?'/api/v1/download/'+x.media_id+'?locale='+d.locale:x.url))+'"><span class="meta"></span><div><h3>'+escape(x.title||x.name)+'</h3></div><span class="go">↓</span></a>').join('')+'</div>')):'';}
  if(type==='testimonials')return items.length?section(wrap('<div class="prose">'+items.map(x=>'<blockquote>'+p(x.quote||x.text)+'<cite>'+escape(x.author||x.name)+'</cite></blockquote>').join('')+'</div>')):'';
- if(type==='cta')return closeBlock(d,a.title||undefined,a.text||undefined);
+ // S1：cta 块的按钮文字/链接/眉标必须来自块数据（否则后台改了前台不认 —— 该缺陷由 .runtime/s1-verify.mjs 抓出）。
+ if(type==='cta')return closeBlock(d,a.title||undefined,a.text||undefined,a.label||undefined,a.url||undefined,a.caps||undefined);
  if(type==='contact_form')return '<section id="inquiry" class="section section--tight">'+wrap(secHead({caps:t(d,3),title:a.title||t(d,4),description:a.text})+'<div class="split">'+(d.product?'<div>'+inquiry(d)+'</div>'+inquiryList(d):'<div>'+inquiry(d)+'</div>'+inquiryList(d))+'</div>')+'</section>';
  if(type==='search')return section(wrap('<div class="split"><div>'+secHead({caps:d.site.site_name,title:a.title||t(d,5)})+'<form class="search-form form" data-locale="'+escape(d.locale)+'"><div class="field"><label for="site-search">'+t(d,5)+'</label><input id="site-search" type="search" name="q" maxlength="150" required></div><div class="form-foot"><button class="btn btn-ember" type="submit">'+t(d,5)+'</button></div></form></div><div class="search-results" aria-live="polite"></div></div>'));
+ // ── S1 新增块（2026-10-09）：把原先由 homepage() 用代码拼的四块变成可选、可排序、可隐藏的块 ──
+ // trust_bar：沿用原 .creds 的 DOM（class 与 .creds-in 结构不变），故 CSS 与既有视觉零改动。
+ if(type==='trust_bar'){if(!items.length)return '';return '<section class="creds" aria-label="'+escape(a.title||d.site.site_name||'')+'">'+wrap('<dl class="creds-in">'+items.slice(0,4).map((x:Row)=>'<div class="cred"><dt>'+escape(x.dt||x.label||'')+'</dt><dd>'+escape(x.dd||x.text||x.value||'')+(x.small?' <small>'+escape(x.small)+'</small>':'')+'</dd></div>').join('')+'</dl>')+'</section>';}
+ // company_intro：原 .company-intro 段；文案优先取块 data，缺省回落到站点设置的公司简介。
+ if(type==='company_intro'){const text=a.text||a.description||d.site.company_description||d.site.footer_description;if(!text)return '';return section(wrap(secHead({caps:a.caps||homeWordsFor(d).intro,title:a.title||homeWordsFor(d).introTitle,description:text})),{cls:'company-intro'});}
+ // process_steps：原 .process 段；步骤数不再固定为 3，序号按顺序生成 01..NN。
+ if(type==='process_steps'){if(!items.length)return '';return section(wrap('<div class="process"><div class="process-head"><div>'+caps(a.caps||tradeText(d.locale,'process'))+h2sec(a.title||tradeText(d.locale,'processTitle'))+'</div>'+lede(a.description||homeWordsFor(d).collectionText)+'</div><ol class="steps">'+items.map((x:Row,i:number)=>'<li class="step"><span class="idx">'+String(i+1).padStart(2,'0')+'</span><h3>'+escape(x.title||x.text||'')+'</h3></li>').join('')+'</ol></div>'),{tight:true});}
+ // market_procurement：市场与采购块（DOM 钩子 [data-trade-public]/[data-trade-cards] 由 trade-public.ts 使用，勿改）。
+ // 设为块类型后即可被排序/隐藏；homepage() 在没有该块时兜底追加一份，保证钩子契约不破。
+ if(type==='market_procurement')return tradePublicSection(d);
+ // certifications：质量与认证。数据来自 trade_market_cards(kind='certificate')，由发布器在 refreshSite 时
+ // 按 status='published' 且未过期填充 items（不在渲染期查库，避免把 DB 依赖带进 ui 包）。
+ // 复用 .trade-public-grid 的卡片样式，保持与市场块一致。
+ if(type==='certifications'){if(!items.length)return '';return section(wrap(secHead({caps:a.caps||d.site.site_name,title:a.title,description:a.description})+'<div class="trade-public-grid">'+items.map((x:Row)=>'<article>'+(x.kind?'<small>'+escape(x.kind)+'</small>':'')+'<h3>'+escape(x.title||'')+'</h3>'+(x.summary?'<p>'+escape(x.summary)+'</p>':'')+(x.valid_until?'<span class="trade-expiry">'+escape(x.valid_until)+'</span>':'')+(x.source_url?'<a href="'+escape(safeURL(x.source_url))+'" rel="noopener noreferrer">'+escape(u(d,'readMore'))+'</a>':'')+'</article>').join('')+'</div>'),{tight:true});}
  return section(wrap(heading(a.title)+p(a.text||'')));
 }
 
@@ -260,7 +276,7 @@ function geoSection(d:Document){
 export function bodyHTML(d:Document){const home=d.route==='/'+d.locale;const nav=menu(d);const footer=d.menus.filter(m=>m.location==='footer');
  // 翻页 cta（publisher 用 cta 块生成上一页/下一页）单独收成 .pager，避免渲染成两个大 CTA 区块。
  const arrows=d.body.filter(b=>b.type==='cta'&&['←','→'].includes(String(b.data?.label||'')));
- const content=arrows.length?d.body.filter(b=>!arrows.includes(b)):d.body;
+ const content=(arrows.length?d.body.filter(b=>!arrows.includes(b)):d.body).filter(b=>!b.data?.hidden);
  const hasClosing=d.product||!content.some(b=>b.type==='cta'||b.type==='contact_form');
  const crumbsTrail:{label:string;href?:string}[]=d.product?[{label:t(d,0),href:'/'+d.locale+'/products'},{label:d.title}]:[];
  const pageTitle=d.title;
