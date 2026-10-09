@@ -37,15 +37,29 @@ async function assertClientRoleEnum(){const x=await openClient();try{const r=awa
 async function assertInquiryIntentColumns(expected){const x=await openClient();try{const r=await x.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='inquiries' AND column_name=ANY($1)",[INQUIRY_INTENT_COLUMNS]);const found=r.rows.map(row=>String(row.column_name));if(expected){if(found.length!==INQUIRY_INTENT_COLUMNS.length)throw Error(`Migration 029 invariant failed: inquiries 上应有 ${INQUIRY_INTENT_COLUMNS.length} 个意向评级列，实测 ${found.length}（${found.join(',')}）。`);console.log('Verified inquiry intent columns present (6).');}else if(found.length!==0)throw Error('Rollback invariant failed: 029 回滚后 inquiries 上仍存在意向评级列 '+found.join(','));}finally{await x.end();}}
 async function assertTaxonomyFeaturedMedia(expected){const x=await openClient();try{
  const col=(await x.query("SELECT data_type,is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='taxonomy_terms' AND column_name='featured_media_id'")).rows[0];
- const fk=(await x.query("SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid=to_regclass('public.taxonomy_terms') AND conname='fk_terms_featured_media'")).rows[0]?.def??null;
+ // L1 终审（2026-10-09）要求：不能只正则匹配 pg_get_constraintdef 的文本 —— 那只证明"某处有指向
+ // media_assets 的 SET NULL 外键"，排不掉约束绑在本表**别的列**上。这里直接把 conrelid / conkey /
+ // confrelid / confkey / confdeltype 读出来，逐项钉死「taxonomy_terms(featured_media_id) → media_assets(id)，删除动作 SET NULL」。
+ // confdeltype: a=NO ACTION, r=RESTRICT, c=CASCADE, n=SET NULL, d=SET DEFAULT
+ const fk=(await x.query(`SELECT t.relname AS local_table,la.attname AS local_column,cf.relname AS foreign_table,fa.attname AS foreign_column,con.confdeltype,array_length(con.conkey,1) AS local_columns
+  FROM pg_constraint con
+  JOIN pg_class t ON t.oid=con.conrelid
+  JOIN pg_class cf ON cf.oid=con.confrelid
+  JOIN pg_attribute la ON la.attrelid=con.conrelid AND la.attnum=con.conkey[1]
+  JOIN pg_attribute fa ON fa.attrelid=con.confrelid AND fa.attnum=con.confkey[1]
+  WHERE con.contype='f' AND con.conname='fk_terms_featured_media' AND con.conrelid=to_regclass('public.taxonomy_terms')`)).rows[0];
+ const binding=fk?`${fk.local_table}(${fk.local_column}) -> ${fk.foreign_table}(${fk.foreign_column}) ON DELETE ${({a:'NO ACTION',r:'RESTRICT',c:'CASCADE',n:'SET NULL',d:'SET DEFAULT'})[fk.confdeltype]||fk.confdeltype}`:'缺少约束 fk_terms_featured_media';
  if(expected){
   if(!col)throw Error('Migration 030 invariant failed: taxonomy_terms.featured_media_id 不存在。');
   if(col.data_type!=='uuid'||col.is_nullable!=='YES')throw Error(`Migration 030 invariant failed: featured_media_id 必须是 nullable uuid，实测 ${col.data_type} nullable=${col.is_nullable}。`);
-  if(!fk||!/REFERENCES media_assets\(id\) ON DELETE SET NULL/.test(String(fk)))throw Error('Migration 030 invariant failed: 外键 fk_terms_featured_media 缺失或不是 → media_assets(id) ON DELETE SET NULL，实测：'+fk);
-  console.log('Verified 030: taxonomy_terms.featured_media_id nullable uuid + FK ON DELETE SET NULL.');
+  if(!fk)throw Error('Migration 030 invariant failed: '+binding);
+  if(fk.local_columns!==1||fk.local_table!=='taxonomy_terms'||fk.local_column!=='featured_media_id')throw Error(`Migration 030 invariant failed: 外键必须绑在本表单列 featured_media_id 上，实测 ${binding}（本表列数 ${fk.local_columns}）。`);
+  if(fk.foreign_table!=='media_assets'||fk.foreign_column!=='id')throw Error(`Migration 030 invariant failed: 外键必须指向 media_assets(id)，实测 ${binding}。`);
+  if(fk.confdeltype!=='n')throw Error(`Migration 030 invariant failed: 删除动作必须是 SET NULL，实测 ${binding}。`);
+  console.log(`Verified 030: taxonomy_terms.featured_media_id nullable uuid + FK ${binding}.`);
  }else{
   if(col)throw Error('Rollback invariant failed: 030 回滚后 taxonomy_terms.featured_media_id 仍存在。');
-  if(fk)throw Error('Rollback invariant failed: 030 回滚后约束 fk_terms_featured_media 仍存在。');
+  if(fk)throw Error('Rollback invariant failed: 030 回滚后约束 fk_terms_featured_media 仍存在（'+binding+'）。');
   console.log('Verified 030 rollback: feature media column and FK absent.');
  }
 }finally{await x.end();}}

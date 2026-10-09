@@ -55,8 +55,10 @@ export async function sourceDocument(table:string,id:string):Promise<Document>{
  // 父表主图（content_items / products 的图库为空时的兜底，以及**分类主图** taxonomy_terms.featured_media_id，
  // 030 迁移新增）：分类没有图库表，这是分类图进入 snapshot 的唯一路径。
  // 为什么 LEFT JOIN media_asset_translations：alt 文案不在 media_assets（那里只有文件元数据），
- // 而在按语言的 media_asset_translations。不 join 的话，运营在「图片描述」里填了 ALT 也不认
- // —— SEO 诊断（seo-review.ts:39）会永远报「图片缺少当前语言的 ALT 描述」，卡片也只能拿标题当 alt。
+ // 而在按语言的 media_asset_translations。改动前**这条父表主图分支**只取媒体行、不装配当前语言的 ALT，
+ // 于是对分类图这类只走本分支的文档，运营在「图片描述」里填了 ALT 也不会进入 Document：
+ // 该分支上的 ALT 永远是空的（本句只限定这条分支，不表示系统其它取图路径也缺 ALT），
+ // 卡片只能拿标题当 alt。join 之后，有译文的语言取译文 ALT，没译文的语言仍保留图片（LEFT JOIN，alt 为 null）。
  if(row.parent.featured_media_id&&!result.media.length){const media=(await query('SELECT m.*,t.alt_text FROM media_assets m LEFT JOIN media_asset_translations t ON t.media_id=m.id AND t.locale_id=$2 WHERE m.id=$1 AND m.deleted_at IS NULL',[row.parent.featured_media_id,row.locale_id]))[0];if(media)result.media.push(media);}
  for(const m of result.media){m.url=assetURL(m);m.variants=(await query('SELECT * FROM media_variants WHERE media_id=$1 ORDER BY width',[m.id])).map(v=>({...v,url:assetURL({...m,object_key:v.object_key})}));}
  if(seo.og_image_id){const m=(await query('SELECT * FROM media_assets WHERE id=$1 AND deleted_at IS NULL',[seo.og_image_id]))[0];seo.og_image_url=assetURL(m);}result.documents=result.documents.map(m=>({...m,url:assetURL(m)}));

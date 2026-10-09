@@ -134,10 +134,97 @@ try{
   await remove(actor,'content_item_translations',{id:homeDoc.id});
   console.log('PASS home blocks ('+blocksChecks.length+'): '+blocksChecks.join('; '));
  }
+ // ── A23–A28 · S3 分类主图（030）──────────────────────────────────────────────
+ // L1 终审（2026-10-09）要求：把 .runtime 的实测升为**持久断言**并接入验证链。这些断言跑在
+ // verify 的隔离库里，覆盖：当前语言 ALT / 缺译文仍保留图片 / 软删除图片不装配 /
+ // 删除媒体后分类保留且关联置 NULL / 产品图库优先不变 / 分类主图经发布快照进入自动分类卡。
+ {
+  const s3Checks:string[]=[];
+  const {autoBlockItems}=await import('../packages/publisher/src/index');
+  const taxonomy=(await query("INSERT INTO taxonomies(code,name) VALUES('s3-verify','S3 verify') RETURNING id"))[0].id;
+  const de=(await query("SELECT id FROM locales WHERE code='de' AND is_enabled"))[0]?.id;
+  assert.ok(de,'前置：de 必须在 locales 里且启用 —— 否则证明不了 ALT 有语言作用域');
+  const newMedia=async(objectKey:string)=>(await query("INSERT INTO media_assets(storage_provider,object_key,original_filename,mime_type,file_size,width,height) VALUES('local',$1,$1,'image/png',1024,800,600) RETURNING id",[objectKey]))[0].id;
+  const mAlt=await newMedia('s3-verify/a shot.png');      // 有 en ALT
+  const mSoft=await newMedia('s3-verify/soft-deleted.png');
+  const mSetNull=await newMedia('s3-verify/set-null.png');
+  const mGallery=await newMedia('s3-verify/gallery.png');
+  const mFeatured=await newMedia('s3-verify/featured.png');
+  await query("INSERT INTO media_asset_translations(media_id,locale_id,alt_text) VALUES($1,$2,'分类主图 EN ALT')",[mAlt,locale]);
+  await query('UPDATE media_assets SET deleted_at=now() WHERE id=$1',[mSoft]);
+  const newTerm=async(code:string,featured:string|null)=>(await query('INSERT INTO taxonomy_terms(taxonomy_id,code,featured_media_id) VALUES($1,$2,$3) RETURNING id',[taxonomy,code,featured]))[0].id;
+  const newTr=async(termId:string,localeId:string,name:string,slug:string,route:string)=>(await query('INSERT INTO taxonomy_term_translations(term_id,locale_id,name,slug,path) VALUES($1,$2,$3,$4,$5) RETURNING id',[termId,localeId,name,slug,route]))[0].id;
+  const termAlt=await newTerm('s3-alt',mAlt);
+  const termSoft=await newTerm('s3-soft',mSoft);
+  const termSetNull=await newTerm('s3-setnull',mSetNull);
+  const trEn=await newTr(termAlt,locale,'Glass reactor','s3-verify-glass-reactor','/en/s3-verify/glass-reactor');
+  const trDe=await newTr(termAlt,de,'Glasreaktor','s3-verify-glasreaktor','/de/s3-verify/glasreaktor');
+
+  // A23/A24：ALT 是**按语言**取的（LEFT JOIN 不吞行）
+  const docEn=await sourceDocument('taxonomy_term_translations',trEn);
+  assert.equal(docEn.media.length,1,'分类主图必须进入 Document.media[0]（分类没有图库表，这是唯一路径）');
+  assert.equal(docEn.media[0].alt_text,'分类主图 EN ALT','必须取当前语言 media_asset_translations 的 ALT');
+  assert.equal(docEn.media[0].url,'/media/s3-verify/a%20shot.png','图片 URL 必须是 /media/ + 逐段转义的 object_key');
+  const docDe=await sourceDocument('taxonomy_term_translations',trDe);
+  assert.equal(docDe.media.length,1,'当前语言缺 ALT 译文时图片仍必须保留（LEFT JOIN）');
+  assert.equal(docDe.media[0].alt_text,null,'缺该语言 ALT 时必须为 null，不得回落到别的语言的 ALT');
+  s3Checks.push('A23 当前语言 ALT 命中 + URL 段转义','A24 缺译文仍保留图片且 alt 为 null');
+
+  // A25：软删除的图片不得装配
+  const trSoft=await newTr(termSoft,locale,'Soft deleted','s3-verify-soft','/en/s3-verify/soft');
+  assert.equal((await sourceDocument('taxonomy_term_translations',trSoft)).media.length,0,'软删除（deleted_at 非空）的图片不得进入 Document.media');
+  s3Checks.push('A25 软删除图片不装配');
+
+  // A26：真库删除媒体 —— 分类保留、关联置 NULL（隔离库验证，生产不做这种测试性删除）
+  await query('DELETE FROM media_assets WHERE id=$1',[mSetNull]);
+  const afterDelete=await query('SELECT id,featured_media_id FROM taxonomy_terms WHERE id=$1',[termSetNull]);
+  assert.equal(afterDelete.length,1,'删除图片后分类必须保留（不是级联删除）');
+  assert.equal(afterDelete[0].featured_media_id,null,'删除图片后 featured_media_id 必须置 NULL（ON DELETE SET NULL）');
+  s3Checks.push('A26 删除媒体→分类保留+关联置 NULL');
+
+  // A27：产品图库优先，图库为空才回落到父表 featured_media_id（既有行为不得被 030 改动）
+  const probeProduct=(await query("INSERT INTO products(sku,featured_media_id,status) VALUES('PROBE-S3-MEDIA',$1,'active') RETURNING id",[mFeatured]))[0].id;
+  await query('INSERT INTO product_media(product_id,media_id,media_role,sort_order) VALUES($1,$2,$3,0)',[probeProduct,mGallery,'main']);
+  const productTr=(await query("INSERT INTO product_translations(product_id,locale_id,name,slug,path) VALUES($1,$2,'Probe product','probe-s3-product','/en/s3-verify/probe-product') RETURNING id",[probeProduct,locale]))[0].id;
+  assert.deepEqual((await sourceDocument('product_translations',productTr)).media.map((m:any)=>m.id),[mGallery],'有产品图库时必须用图库，featured_media_id 不参与');
+  await query('DELETE FROM product_media WHERE product_id=$1',[probeProduct]);
+  assert.deepEqual((await sourceDocument('product_translations',productTr)).media.map((m:any)=>m.id),[mFeatured],'图库为空时回落到父表 featured_media_id（既有兜底行为不变）');
+  s3Checks.push('A27 产品图库优先/空图库回落（行为不变）');
+
+  // A28：分类主图经**发布快照**进入自动分类卡的 items（发布链路端到端）
+  const mediaJob=await requestPublish(actor,'taxonomy_term_translations',trEn);
+  await processPublishJob({data:{jobId:mediaJob.id}} as any);
+  const publishedCategory=await released('/en/s3-verify/glass-reactor');
+  assert.ok(publishedCategory,'分类译文发布后必须出现在 published_documents');
+  assert.equal(publishedCategory!.media[0]?.alt_text,'分类主图 EN ALT','发布快照必须带上当前语言的 ALT');
+  const categoryItems=autoBlockItems('category_grid','/xx',[],[],[publishedCategory]);
+  assert.equal(categoryItems?.[0]?.media?.[0]?.url,'/media/s3-verify/a%20shot.png','分类主图必须经发布快照进入自动分类卡（publisher 的 cardOf 形状）');
+  s3Checks.push('A28 分类主图经发布快照进入自动分类卡');
+
+  // 夹具自清（分类 / 译文 / 媒体 / 产品），并断言清干净
+  await query('DELETE FROM taxonomy_term_translations WHERE term_id=ANY($1::uuid[])',[[termAlt,termSoft,termSetNull]]);
+  await query('DELETE FROM taxonomy_terms WHERE taxonomy_id=$1',[taxonomy]);
+  await query('DELETE FROM taxonomies WHERE id=$1',[taxonomy]);
+  await query('DELETE FROM product_translations WHERE product_id=$1',[probeProduct]);
+  await query('DELETE FROM products WHERE id=$1',[probeProduct]);
+  await query('DELETE FROM media_asset_translations WHERE media_id=ANY($1::uuid[])',[[mAlt,mSoft,mSetNull,mGallery,mFeatured]]);
+  await query('DELETE FROM media_assets WHERE id=ANY($1::uuid[])',[[mAlt,mSoft,mSetNull,mGallery,mFeatured]]);
+  assert.equal((await query("SELECT count(*)::int AS n FROM taxonomy_terms WHERE code LIKE 's3-%'"))[0].n,0,'分类主图夹具必须自清');
+  assert.equal((await query("SELECT count(*)::int AS n FROM media_assets WHERE object_key LIKE 's3-verify/%'"))[0].n,0,'分类主图媒体夹具必须自清');
+  assert.equal((await query("SELECT count(*)::int AS n FROM products WHERE sku='PROBE-S3-MEDIA'"))[0].n,0,'产品图库探针必须自清');
+  console.log('PASS category media ('+s3Checks.length+'): '+s3Checks.join('; '));
+ }
  // 夹具自清本身也是不变量
  assert.equal((await query("SELECT count(*)::int AS n FROM products WHERE sku LIKE 'PROBE-CARTON-%'"))[0].n,0,'箱规探针夹具必须自清');
  console.log('PASS carton packing ('+cartonChecks.length+'): '+cartonChecks.join('; '));
  console.log('PASS: CRUD, RBAC, published snapshots, static rendering, version restore, scheduling, cancellation, failure state and unpublish.');
  // Remove fixture records so full rollback verifies only migration ownership.
- await query('TRUNCATE published_documents,site_paths,public_submissions,publish_jobs,content_revisions,audit_logs,content_item_translations,content_items,users RESTART IDENTITY CASCADE');
+ // 这一条是**夹具卫生**，不是断言；但本机 HDD 在繁忙时这条 CASCADE TRUNCATE 的 fsync 会远超连接池的
+ // statement_timeout=30s（2026-10-09 实测：030 已应用 101.9s；**无 030 对照 156.5s**；空库 98–105s；
+ // wait_event=DataFileImmediateSync 且 blockers 为空，磁盘队列 16–24）⇒ 清理改用一条独立连接并单独放宽超时。
+ // 放宽的只是这条清理语句：生产连接参数（db.ts 的 30s）与所有断言一字未改，清理失败依旧抛错、不吞异常。
+ const {Client}=await import('pg');
+ const cleanup=new Client({connectionString:process.env.DATABASE_URL,statement_timeout:600000});
+ await cleanup.connect();
+ try{await cleanup.query('TRUNCATE published_documents,site_paths,public_submissions,publish_jobs,content_revisions,audit_logs,content_item_translations,content_items,users RESTART IDENTITY CASCADE');}finally{await cleanup.end();}
 }finally{await pool.end();}
