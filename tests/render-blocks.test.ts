@@ -127,3 +127,38 @@ test('回归：九语言各恰好一个 h1，空列表不渲染空板块，安�
   assert.match(custom, /href="\/en\/custom"/);
   assert.match(custom, /CUSTOM CAPS/);
 });
+
+// ── L1 终审（第二轮）必修 2：产品页旁路 ─────────────────────────────────────────────
+// 原 `hasClosing = d.product || ...` 被 `d.product` 短路 ⇒ 产品页**无论是否配置过 CTA** 都会补结尾，
+// 显式隐藏的 CTA 因此被补回；且当 body 里有可见 cta 时会渲染出**两个**结尾区块。
+// 现改为「未配置才补」，并保留"未配置时的默认结尾"。
+const productDoc = (body: Block[]) => {
+  const doc = systemDocument(locale as never, ctx() as never, '/en/products/cup', 'Cup', body as never) as unknown as Record<string, unknown>;
+  doc.product = { id: 'p1', sku: 'SKU1', applications: [] };
+  doc.media = [{ url: '/media/cup.png' }];
+  return renderHTML(doc as never);
+};
+
+test('产品页：显式隐藏 cta ⇒ 不出现默认结尾（旁路已闭合）', () => {
+  const html = productDoc([cta({ hidden: true })]);
+  assert.doesNotMatch(html, /class="close"/, '产品页同样不得补回被隐藏的 CTA');
+  assert.match(html, /inquiry-form/, '询盘表单属于产品页的独立注入，不受影响');
+});
+
+test('产品页：未配置 cta ⇒ 仍保留默认结尾', () => {
+  const html = productDoc([{ type: 'rich_text', data: { title: 'Spec', text: 'x' } }]);
+  assert.match(html, /class="close"/, '未配置时产品页仍需收口');
+  assert.match(html, /inquiry-form/);
+});
+
+test('产品页：可见 cta ⇒ 恰好一个结尾区块（不得重复渲染）', () => {
+  const html = productDoc([cta()]);
+  assert.equal((html.match(/class="close"/g) || []).length, 1, '结尾区块必须只有一个');
+  assert.match(html, /Contact our team/);
+});
+
+test('产品页：配置了 contact_form 时不再追加默认结尾（未配置 ≠ 已配置）', () => {
+  const html = productDoc([{ type: 'contact_form', data: { title: 'Tell us' } }]);
+  assert.doesNotMatch(html, /class="close"/, '已配置联系表单即视为有收口');
+  assert.match(html, /Tell us/);
+});

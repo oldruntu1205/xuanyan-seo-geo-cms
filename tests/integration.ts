@@ -103,6 +103,9 @@ try{
   assert.ok(!/data-trade-public/.test(homeHtml),'未配置市场块时不渲染（且不再兜底补回）');
   assert.ok(!/class="creds"/.test(homeHtml)&&!/class="process"/.test(homeHtml),'旧版实体首页不得被系统八块序列（信任带/流程）替换');
   assert.equal((await released('/en'))?.title,'Legacy home','实体首页应接管 /en 路由');
+  // L1 终审第二轮 Q6-4：顺序必须在**发布产物**上直接断言，不能只断言 sourceDocument。
+  // 本页配置顺序为 product_grid → (latest_articles 隐藏) → cta，故产物里产品区必须先于结尾 CTA。
+  assert.ok(homeHtml.indexOf('home-collection')>=0&&homeHtml.indexOf('home-collection')<homeHtml.indexOf('Legacy label'),'发布产物中的相对顺序必须与 body 数组一致（产品区在结尾 CTA 之前）');
 
   // ③ 块表所有权：有行 ⇒ 以块表为准；全禁用 ⇒ body 为空，绝不回退到 jsonb
   await query('INSERT INTO content_blocks(content_translation_id,block_type,sort_order,is_enabled,data) VALUES($1,$2,$3,true,$4::jsonb),($1,$5,$6,true,$7::jsonb)',[homeDoc.id,'rich_text',0,JSON.stringify({title:'From block table'}),'cta',1,JSON.stringify({title:'Block cta'})]);
@@ -111,7 +114,23 @@ try{
   await query('UPDATE content_blocks SET is_enabled=false WHERE content_translation_id=$1',[homeDoc.id]);
   const allDisabled=await sourceDocument('content_item_translations',homeDoc.id);
   assert.equal(allDisabled.body.length,0,'块表全部禁用后 body 必须为空，不得回退到 jsonb 的旧 body（Q4 反复活）');
-  blocksChecks.push('A18 排序/隐藏原样保留','A19 旧版实体首页发布链路','A20 块表全禁用不回退');
+
+  // ④ L1 终审第二轮 Q4：写路径守卫 —— 有块表行时保存 body 必须被明确拒绝（而不是"改了不生效"）
+  await assert.rejects(
+   ()=>save(actor,'content_item_translations',{body:[{type:'rich_text',data:{text:'silently ignored'}}]},{id:homeDoc.id,content_item_id:homeParent.id,locale_id:locale}),
+   /页面区块/,'存在块表行时保存正文字必须被拒绝并提示改用页面区块',
+  );
+
+  // ⑤ L1 终审第二轮 Q4：删除最后一条块表行 ⇒ 来源切回 jsonb body。
+  // 这是**受控切换**（写路径已守卫，切换只能靠显式删除），把它钉住以免日后被当成意外行为改掉。
+  await query('DELETE FROM content_blocks WHERE content_translation_id=$1',[homeDoc.id]);
+  const switchedBack=await sourceDocument('content_item_translations',homeDoc.id);
+  assert.deepEqual(switchedBack.body.map((b:any)=>b.type),['product_grid','latest_articles','cta'],'删除全部块表行后来源按契约切回 jsonb body');
+  // 切回后写守卫不再拦截
+  await save(actor,'content_item_translations',{body:[{type:'rich_text',data:{text:'back to jsonb'}}]},{id:homeDoc.id,content_item_id:homeParent.id,locale_id:locale});
+  assert.deepEqual((await sourceDocument('content_item_translations',homeDoc.id)).body.map((b:any)=>b.type),['rich_text'],'无块表行时允许直接保存正文');
+
+  blocksChecks.push('A18 排序/隐藏原样保留+发布产物顺序','A19 旧版实体首页发布链路','A20 块表全禁用不回退','A21 有块表行时拒绝保存正文','A22 删净块表行后受控切回 body');
   await remove(actor,'content_item_translations',{id:homeDoc.id});
   console.log('PASS home blocks ('+blocksChecks.length+'): '+blocksChecks.join('; '));
  }

@@ -25,11 +25,17 @@ export async function sourceDocument(table:string,id:string):Promise<Document>{
  if(geo.id){geo.facts=await query('SELECT * FROM geo_key_facts WHERE geo_profile_id=$1 ORDER BY sort_order',[geo.id]);geo.references=await query('SELECT * FROM geo_references WHERE geo_profile_id=$1 ORDER BY sort_order',[geo.id]);}
  const schema=row.schema_markup_id?(await query('SELECT * FROM schema_markup WHERE id=$1',[row.schema_markup_id]))[0]??{}:{};
  let body=Array.isArray(row.body)?row.body:[];
- // 2026-10-09 L1 终审 Q4：块表的「所有权」语义 —— 该译文一旦存在块表行，块表就是唯一来源。
+ // 2026-10-09 L1 终审 Q4：块表的「所有权」语义 —— 该译文**当前存在块表行**时，块表就是唯一来源。
  // 旧写法只查 is_enabled，于是「最后一条启用块被禁用」时查询退化为零行，导致 jsonb 里的旧 body
  // 复活（同一事实两个 owner）。现在改为取全部行、再在内存里筛启用行：
  //   · 有行（哪怕全禁用）⇒ 以块表为准；全禁用 ⇒ body 为空，**不回退**到 jsonb；
- //   · 从未有过块表行 ⇒ 才使用 jsonb body。
+ //   · 当前没有块表行 ⇒ 使用 jsonb body。
+ //
+ // ⚠️ 能力边界（L1 要求明示，勿把它写成"永久所有权"）：本查询只能判断「**当前**没有块表行」，
+ //    无法判断「从未有过」。因此**删除最后一条块表行**会把来源切回 jsonb body。这是**受控切换**：
+ //      ① 写路径有守卫（crud.ts `save()`）：该译文存在块表行时，保存 body 会被拒绝并提示改用
+ //         「页面区块」编辑 —— 所以"改 body 悄悄生效"这条隐式路径被堵住，切换只能靠显式删除；
+ //      ② tests/integration.ts 的 A20 把这个行为钉住：删除最后一行 ⇒ 回退 body（按契约，不是意外）。
  if(table==='content_item_translations'){
   const blocks=await query('SELECT block_type,data,is_enabled FROM content_blocks WHERE content_translation_id=$1 ORDER BY sort_order,id',[id]);
   if(blocks.length)body=blocks.filter((b:Row)=>b.is_enabled).map((b:Row)=>({type:b.block_type,data:b.data}));

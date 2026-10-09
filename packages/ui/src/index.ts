@@ -221,7 +221,8 @@ function block(b:Block,d:Document):string{const a=b.data||{};const type=b.type;c
  // process_steps：原 .process 段；步骤数不再固定为 3，序号按顺序生成 01..NN。
  if(type==='process_steps'){if(!items.length)return '';return section(wrap('<div class="process"><div class="process-head"><div>'+caps(a.caps||tradeText(d.locale,'process'))+h2sec(a.title||tradeText(d.locale,'processTitle'))+'</div>'+lede(a.description||homeWordsFor(d).collectionText)+'</div><ol class="steps">'+items.map((x:Row,i:number)=>'<li class="step"><span class="idx">'+String(i+1).padStart(2,'0')+'</span><h3>'+escape(x.title||x.text||'')+'</h3></li>').join('')+'</ol></div>'),{tight:true});}
  // market_procurement：市场与采购块（DOM 钩子 [data-trade-public]/[data-trade-cards] 由 trade-public.ts 使用，勿改）。
- // 设为块类型后即可被排序/隐藏；homepage() 在没有该块时兜底追加一份，保证钩子契约不破。
+ // 设为块类型后即可被排序/隐藏（**显式隐藏不会被补回**）；缺席时由 trade-public.ts 的空集循环安全退出。
+ // L1 Q2 裁定：「有轮播 ⇒ 必有市场块」与「市场块可隐藏」冲突，故渲染层不再兜底该块。
  if(type==='market_procurement')return tradePublicSection(d);
  // certifications：质量与认证。**items 目前由运营在后台手填**（复用 .trade-public-grid 的卡片样式）。
  // ⚠️ 尚未实现（L1 终审 P2 指出原注释与实现不符，已订正）：从 trade_market_cards(kind='certificate')
@@ -291,7 +292,12 @@ export function bodyHTML(d:Document){const home=d.route==='/'+d.locale;const nav
  const visible=configured.filter(b=>!isHidden(b));
  const arrows=visible.filter(b=>b.type==='cta'&&['←','→'].includes(String(b.data?.label||'')));
  const content=arrows.length?visible.filter(b=>!arrows.includes(b)):visible;
- const hasClosing=d.product||!configured.some(b=>b.type==='cta'||b.type==='contact_form');
+ // L1 终审（第二轮）P2 整改：产品页原为 `hasClosing = d.product || ...`，`d.product` 短路使得
+ // **无论 body 是否配置过 CTA**，产品页都会追加一次默认结尾 —— 显式隐藏的 CTA 因此被补回。
+ // 现在统一为「未配置才补」：配置过（哪怕被隐藏）一律不补。这也顺带消除了旧写法在产品页
+ // 与 body 里可见 cta 同时存在时**重复渲染两个结尾区块**的隐患。询盘提交逻辑不受影响。
+ const closingConfigured=configured.some(b=>b.type==='cta'||b.type==='contact_form');
+ const hasClosing=!closingConfigured;
  const crumbsTrail:{label:string;href?:string}[]=d.product?[{label:t(d,0),href:'/'+d.locale+'/products'},{label:d.title}]:[];
  const pageTitle=d.title;
  const pager=arrows.length?'<nav class="pager" aria-label="Pagination">'+arrows.map(x=>{const label=String(x.data?.label);const isNext=label==='→';return '<a href="'+escape(safeURL(x.data?.url))+'" rel="'+(isNext?'next':'prev')+'">'+escape(isNext?u(d,'next'):u(d,'previous'))+'</a>';}).join('')+'</nav>':'';

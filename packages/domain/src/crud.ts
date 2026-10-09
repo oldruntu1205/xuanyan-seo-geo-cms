@@ -51,6 +51,13 @@ export async function save(actor:Actor,table:string,input:Row,key?:Row){
  return transaction(async c=>{
   let old:Row|null=null;if(key){const w=keyWhere(table,key);old=(await c.query(`SELECT * FROM ${q(table)} WHERE ${w.sql} FOR UPDATE`,w.values)).rows[0];if(!old)throw new DomainError('记录不存在',404);if(expected&&old.updated_at&&new Date(expected).getTime()!==new Date(old.updated_at).getTime())throw new DomainError('记录已被其他人修改，请重新加载',409);}
   const fields=Object.keys(data);if(!fields.length)throw new DomainError('没有可保存的字段');
+ // 2026-10-09 L1 终审 Q4 要求：后台不能继续让用户编辑一个会被块表忽略的 body。
+ // 渲染时块表优先（见 documents.ts），若在某条已存在块表行的译文上保存 body，用户会"以为改了、
+ // 前台不变"。此处改为**明确拒绝**并给出处置办法 —— 按裁定只做单页面的显式转换，不做全库迁移。
+ if(table==='content_item_translations'&&data.body!==undefined&&key){
+  const owned=(await c.query('SELECT 1 FROM content_blocks WHERE content_translation_id=$1 LIMIT 1',[key.id]));
+  if((owned.rowCount??0)>0)throw new DomainError('该页面的内容由「页面区块」提供，保存正文不会生效。请改用「页面区块」编辑；若确实要改回正文，请先删除该页面的全部区块记录。');
+ }
   const values=fields.map(k=>cols.find(c=>c.name===k)?.type==='jsonb'?JSON.stringify(data[k]):data[k]);
   let result;if(key){const w=keyWhere(table,key,values.length);result=await c.query(`UPDATE ${q(table)} SET ${fields.map((f,i)=>`${q(f)}=$${i+1}`).join(',')} WHERE ${w.sql} RETURNING *`,[...values,...w.values]);}
   else result=await c.query(`INSERT INTO ${q(table)}(${fields.map(q).join(',')}) VALUES(${fields.map((_,i)=>'$'+(i+1)).join(',')}) RETURNING *`,values);

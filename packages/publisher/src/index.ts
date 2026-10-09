@@ -74,7 +74,10 @@ export function autoBlockItems(type:string,ownRoute:string,products:Document[],c
  *
  * 与旧实现的等价性：旧 homepage() 写死为
  *   creds → product_grid → company_intro → process → case_studies → latest_articles → trade → cta
- * 这里逐项对齐（包括文章/案例块的眉标与「查看全部」按钮文案），保证系统首页的观感不回退。
+ * 这里按同一顺序产出板块序列，并保留文章/案例块的眉标与「查看全部」按钮文案。
+ * 注（L1 终审第二轮指正）：原句写的「保证系统首页的观感不回退」属未经验证的声明，已删除 ——
+ *   观感差异应以旧/新发布产物对比为证。另：cta 块的 label/url 现在会生效（旧实现被 closeBlock
+ *   丢弃），这本身就是一处刻意的行为变化，不应被描述成"等价"。
  *
  * 导出以便离线验证：不连数据库也能用夹具渲染这一段，断言顺序与显示/隐藏行为。 */
 export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],content:Document[],prefix:string){
