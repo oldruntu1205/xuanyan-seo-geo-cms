@@ -657,7 +657,7 @@
 | **S5** | `a3655b2` | 六项裁决 Q1–Q6 执行：令牌改值 + CTA 橙 + 容器 1360 + 间距 64–88 + 首页 4 列 + 卡片 1:1 + Hero 520 | `.runtime/s5-verify.mjs` **25/25**；旧调色板**全族零残留**；`css:build` 幂等（SHA 不变）；宽度矩阵 320–1440 **无横向溢出**、每页 1 个 `<h1>` |
 | **S1** | `fa946b6` | G0：`homepage()` 改按 `body` 顺序渲染 + 5 个新块类型 + `systemHomeBlocks()` + BlockEditor「隐藏」开关 | `.runtime/s1-verify.mjs` **16/16**；`check-hooks` **56/56 蕴含规则**；宽度矩阵 4/4 无溢出；送审稿 `docs/L1送审稿-S1-首页板块数据驱动.md` |
 | **S1 整改** | `16d8a4f` | L1 终审「需整改」返工：区分「未配置」与「显式隐藏」（首页/内页/翻页三处统一）；市场块取消渲染层兜底；删除证书自动取数不实声明（列 S4）；`documents.ts` **块表所有权**（有行即唯一来源、全禁用不回退 jsonb）；L1 指定断言入版本控制 | `pnpm test` **108/106/0/2**；`verify.mjs` **PASS home blocks (3): A18/A19/A20** + 全链路 PASS；`tests/` 纯新增（40+0 / 129+0）；回执 `docs/L1返工回执-S1-整改与断言.md` |
-| **S1 整改②** | `本轮` | L1 第二轮「仍需整改」：**产品页旁路**（`d.product` 短路 ⇒ 隐藏的 CTA 被补回；且可见 cta 时重复渲染两个结尾）改为「未配置才补」；**写路径守卫**（`crud.ts`：译文有块表行时保存正文被明确拒绝）；**受控切换**语义与措辞订正（`documents.ts`）；publisher 删除「观感不回退」未证声明；`index.ts:224` 过期注释订正；补 **真实浏览器执行 siteJS** 与 **A18 发布产物顺序**断言 | `pnpm test` **112/110/0/2**；`verify.mjs` **PASS home blocks (5): A18–A22** + 全链路 PASS；`.runtime/s1-browser-js.mjs` **✅ 无未捕获异常**；**生产只读盘点**：9 语言首页全为 `system`、受影响页面 **0**、块表仅 1 页（`/zh/g`）——见 `docs/S1-九语言首页存量盘点-生产只读.md`；回执 `docs/L1返工回执-S1-第二轮整改.md` |
+| **S1 整改②** | `4afba35` | L1 第二轮「仍需整改」：**产品页旁路**（`d.product` 短路 ⇒ 隐藏的 CTA 被补回；且可见 cta 时重复渲染两个结尾）改为「未配置才补」；**写路径守卫**（`crud.ts`：译文有块表行时保存正文被明确拒绝）；**受控切换**语义与措辞订正（`documents.ts`）；publisher 删除「观感不回退」未证声明；`index.ts:224` 过期注释订正；补 **真实浏览器执行 siteJS** 与 **A18 发布产物顺序**断言 | `pnpm test` **112/110/0/2**；`verify.mjs` **PASS home blocks (5): A18–A22** + 全链路 PASS；`.runtime/s1-browser-js.mjs` **✅ 无未捕获异常**；**生产只读盘点**：9 语言首页全为 `system`、受影响页面 **0**、块表仅 1 页（`/zh/g`）——见 `docs/S1-九语言首页存量盘点-生产只读.md`；回执 `docs/L1返工回执-S1-第二轮整改.md` |
 
 **S1 关键实现决策（供评审）**：
 - **顺序搬到发布器**：首页在「实体页占用同 route」之前由 `refreshSite` 生成，所以顺序必须落到该文档的 `body` 里（`systemHomeBlocks()`），前端只负责「按数组顺序渲染」。顺序与旧 `homepage()` 逐项对齐（含文章/案例块的眉标与「查看全部」按钮），保证观感不回退。
@@ -709,10 +709,10 @@
 
 | 切片 | 提交 | 内容 | 证据 |
 | --- | --- | --- | --- |
-| **S4（G4）** | `本轮` | `capability`（制造能力）块：一个块承载「图 + 文 + 数据 + 能力清单」，零 DDL，样式段 `.capability`/`.cap-list` 集中写进 `kiln-extra`（纪律：kiln 里没有的组件用附加类） | `.runtime/s467-verify.mjs` **25/25**；`css:build` 幂等（SHA 不变） |
-| **S4（G5）** | `本轮` | `certifications` 服务端块：publisher 新增 `certificateCards(locale)`，在每次站级刷新时用 `trade_market_cards(kind='certificate' AND status='published' AND 未过期 AND 来源未变更)` 填充 `items`；首页在证书非空时插入该块（为空则**不插入**，与旧首页结构一致）；渲染期再过滤一次过期项 | 同上 + `systemHomeBlocks` 顺序断言 |
-| **S6（G7）** | `本轮` | 把 `index.ts` / `publisher` 里 **33 个** `locale==='zh'?中:英` 硬编码迁进 9 语言表：询盘表单（电话/文件控件）· 市场与采购块（10 条）· GEO 知识段 · 统计同意（4 条）· 证书块默认眉标/标题 · **发布器生成的系统页标题**（首页三块 + 产品/知识/联系/搜索页标题 + 翻页标题） | 9 语言 × 33 词条齐备性断言 + 7 个"原先回落英文"的语言逐条渲染断言 |
-| **S7（G6）** | `本轮` | 后台 `primary` 首项加「首页」`home_desk` 桌面：4 条区块级说明 + 「九语言首页来源」表（每条按 `filter={path:'/{locale}'}` 精确判定「实体页面 / 系统生成」）+ 每语言直达「页面与文章」+ 全站重建按钮；`field-meta.ts` 补 `content_item_translations` 的资源指引 | `.runtime/s7-verify-manage-home.mjs` **14/14**（真实 CMS 3001 + 本项目库 55433 + 无头 Chrome CDP，含登录、点选、跳转、390px 无溢出、0 未捕获异常；截图 `.runtime/shots/s7/`） |
+| **S4（G4）** | `a38a9fd` | `capability`（制造能力）块：一个块承载「图 + 文 + 数据 + 能力清单」，零 DDL，样式段 `.capability`/`.cap-list` 集中写进 `kiln-extra`（纪律：kiln 里没有的组件用附加类） | `.runtime/s467-verify.mjs` **25/25**；`css:build` 幂等（SHA 不变） |
+| **S4（G5）** | `a38a9fd` | `certifications` 服务端块：publisher 新增 `certificateCards(locale)`，在每次站级刷新时用 `trade_market_cards(kind='certificate' AND status='published' AND 未过期 AND 来源未变更)` 填充 `items`；首页在证书非空时插入该块（为空则**不插入**，与旧首页结构一致）；渲染期再过滤一次过期项 | 同上 + `systemHomeBlocks` 顺序断言 |
+| **S6（G7）** | `a38a9fd` | 把 `index.ts` / `publisher` 里 **33 个** `locale==='zh'?中:英` 硬编码迁进 9 语言表：询盘表单（电话/文件控件）· 市场与采购块（10 条）· GEO 知识段 · 统计同意（4 条）· 证书块默认眉标/标题 · **发布器生成的系统页标题**（首页三块 + 产品/知识/联系/搜索页标题 + 翻页标题） | 9 语言 × 33 词条齐备性断言 + 7 个"原先回落英文"的语言逐条渲染断言 |
+| **S7（G6）** | `a38a9fd` | 后台 `primary` 首项加「首页」`home_desk` 桌面：4 条区块级说明 + 「九语言首页来源」表（每条按 `filter={path:'/{locale}'}` 精确判定「实体页面 / 系统生成」）+ 每语言直达「页面与文章」+ 全站重建按钮；`field-meta.ts` 补 `content_item_translations` 的资源指引 | `.runtime/s7-verify-manage-home.mjs` **14/14**（真实 CMS 3001 + 本项目库 55433 + 无头 Chrome CDP，含登录、点选、跳转、390px 无溢出、0 未捕获异常；截图 `.runtime/shots/s7/`） |
 
 **本批次关键实现决策（供评审）**：
 
