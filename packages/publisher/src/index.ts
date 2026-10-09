@@ -43,6 +43,29 @@ async function store(doc:Document,jobId:string){const prior=(await query('SELECT
 // 已发布文档 → 卡片形状（产品区 / 文章区 / 关联产品共用）
 const cardOf=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,title:d.title,description:d.description,media:d.media,applications:d.product?.applications||[]});
 
+/** 自动填充区块的「块类型 → 已发布文档集合」映射（2026-10-09 S2/G1，规范 §7.2）。
+ *
+ * 为什么抽成纯函数：这段逻辑原本埋在 refreshSite 的循环里，只有连库跑一次全站刷新才验得到；
+ * 抽出来后用夹具就能逐条断言三条分支，回归成本从「起库 + 发布」降到一次 tsx 调用
+ * （与 systemHomeBlocks 的离线验证同一手法）。
+ * 为什么 category_grid 必须在这里填：该块类型早已存在、UI 的 cards() 也已能渲染它，
+ * 但发布器从不给它填 items ⇒ 运营在首页/分类页只能手抄分类标题与 URL。分类同样只取
+ * 已发布快照（不读草稿、不新增对外 API），未发布的分类不会出现在公开页。
+ * 返回 null = 该类型不由发布器接管（手填 items 一律保留，不被覆盖）。 */
+export function autoBlockSource(type:string,products:Document[],content:Document[],categories:Document[]):Document[]|null{
+ if(type==='product_grid')return products;
+ if(type==='category_grid')return categories;
+ if(type==='latest_articles')return content;
+ return null;
+}
+/** 自动填充的 items 计算：排除自身路由（分类页不能把自己列进自己的分类列表）、
+ * 默认 6 条（块数据 data.limit 可覆盖）、上限 24（与产品区/文章区原口径一致）。 */
+export function autoBlockItems(type:string,ownRoute:string,products:Document[],content:Document[],categories:Document[],limit?:unknown):Row[]|null{
+ const source=autoBlockSource(type,products,content,categories);
+ if(!source)return null;
+ return source.filter(x=>x.route!==ownRoute).slice(0,Math.min(24,Number(limit)||6)).map(cardOf);
+}
+
 /** 首页系统文档的板块序列（2026-10-09 S1）。
  *
  * 为什么顺序在这里而不是在 packages/ui：首页在「某条实体页占用同 route」之前，是由发布器生成的
@@ -91,9 +114,9 @@ async function refreshSite(jobId:string){
  for(const orphan of orphans){await removePublished(String(orphan.route),jobId);changed.push(String(orphan.route));}
  const disabled=await query('SELECT route FROM published_documents WHERE locale_id NOT IN(SELECT id FROM locales WHERE is_enabled)');for(const x of disabled){await removePublished(x.route,jobId);changed.push(x.route);}
  for(const locale of locales){const ctx=await siteContext(locale.id);const released=(await query("SELECT snapshot FROM published_documents WHERE locale_id=$1 AND entity_type<>'system' ORDER BY published_at DESC",[locale.id])).map(r=>r.snapshot as Document);
-  const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||''));const card=cardOf;
+  const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||'')),categories=released.filter(d=>d.entityType==='taxonomy_term_translations');const card=cardOf;
   for(const doc of released){Object.assign(doc,ctx);if(doc.entityType==='taxonomy_term_translations')doc.related=released.filter(d=>d.termIds?.includes(doc.groupId||'')).map(card);else doc.related=doc.related.filter(r=>released.some(d=>d.route===r.route));doc.alternates=(await query(`SELECT p.route AS path,l.code AS locale,l.hreflang FROM published_documents p JOIN locales l ON l.id=p.locale_id WHERE l.is_enabled AND p.entity_type=$1 AND (p.snapshot->>'groupId')=$2 ORDER BY l.sort_order`,[doc.entityType,(doc as any).groupId??doc.entityId]));if(!doc.alternates.length)doc.alternates=[{path:doc.route,locale:doc.locale,hreflang:locale.hreflang}];
-   for(const b of doc.body){if(['product_grid','latest_articles'].includes(b.type)&&(!b.data.items?.length||b.data._autoItems)){const source=b.type==='product_grid'?products:content;b.data.items=source.filter(x=>x.route!==doc.route).slice(0,Math.min(24,Number(b.data.limit)||6)).map(card);b.data._autoItems=true;}}
+   for(const b of doc.body){const auto=autoBlockItems(b.type,doc.route,products,content,categories,b.data.limit);if(auto&&(!b.data.items?.length||b.data._autoItems)){b.data.items=auto;b.data._autoItems=true;}}
    await store(doc,jobId);changed.push(doc.route);
   }
   const zh=locale.code==='zh',prefix='/'+locale.code;const auto:Document[]=[];
