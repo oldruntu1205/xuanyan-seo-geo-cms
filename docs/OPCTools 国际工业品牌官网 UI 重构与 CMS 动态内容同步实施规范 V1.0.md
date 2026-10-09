@@ -668,7 +668,7 @@
 - 首页产品区补进 `≤1120` 的降列规则：原先只有 `.grid` 被降到 3 列，`.home-collection .grid` 因特异性更高而**漏降**（桌面改 4 列后若不同步修，881–1120 段会一直是 4 列）。
 - 旧调色板一次性迁净（含惰性规则）：`rgba(20,43,65,…)`、`rgba(0,91,149,…)`、`rgba(0,102,166,…)`、`#142b41XX`、深色底提亮档 `#70C9F5/#78CDF5/#81ccf4`。目的是让「旧调色板零残留」成为可核验的不变量。
 
-### 13.2 三个工具坑（本机实测，写进规范避免重踩）
+### 13.2 六个工具坑（本机实测，写进规范避免重踩）
 
 1. **`:55432` 不等于本项目的库。** `.runtime/render-preview.mjs` 连库报 `InitializeSessionUserId` 失败（连接串里的 `suns` 角色在该实例上不存在）⇒ 端口上跑的可能不是 SUNS 的 `.runtime/pg-data`。**处置**：本轮改用**离线快照渲染**（`.runtime/s5-render-offline.mjs` 读 `.runtime/industrial-ui/documents.json` 的 15 条真实生产 Document），不连库、不连生产、不碰其他工作区的 PG。**Do not** 为了跑预览去动 `:55432` 上的实例。
 2. **CDP 直连 `/json/new` 目标会在导航时失效**：`.runtime/industrial-ui/capture.mjs` 报 `-32000 Inspected target navigated or closed`。**处置**：改用**浏览器级 WS + `Target.attachToTarget(flatten:true)` + `sessionId`**，并等 `Page.loadEventFired` 而非定时 sleep —— 新脚本 **`.runtime/s5-probe.mjs`**（支持 `--widths=` 与 `--shot=`）。后续 §9 V7 的宽度矩阵建议直接用这个脚本。
