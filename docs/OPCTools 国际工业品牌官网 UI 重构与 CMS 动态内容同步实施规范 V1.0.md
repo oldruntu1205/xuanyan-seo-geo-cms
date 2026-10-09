@@ -750,7 +750,7 @@
 
 ---
 
-### 13.7 S3（G2 分类主图）已完成（2026-10-09，第三批次；**不含生产上线**）
+### 13.7 S3（G2 分类主图）已完成（2026-10-09，第三批次；**已上生产，见 §13.9**）
 
 | 切片 | 提交 | 内容 | 证据 |
 | --- | --- | --- | --- |
@@ -776,7 +776,7 @@
 
 **仍未做（本切片边界）**：
 
-- **生产上线**：`030` 命中高风险清单第 1 条，**上线前必须先出 L1 送审稿** —— 已产出 [`docs/L1送审稿-S3-分类主图迁移.md`](L1送审稿-S3-分类主图迁移.md)（自包含事实 + 7 条待判问题 + 固定回复骨架），**需人工转交 L1**。目前 `030` 只应用在**本机 dev 库**。
+- **生产上线 —— 已完成（2026-10-09 15:45，见 §13.9）**：`sync-prod.ps1` 部署 + prod 应用 `030` + 公网/后台逐项验收 16/16；**L1 前置约束 #3 的后半（配图后在公网分类卡上核对 URL/ALT）仍需先有内容**（生产当前 `terms_with_image=0`，本轮不代用户改内容）。
 - **分类图 4:3 —— 已知差异 / 未完成（需用户确认，不得记为已完成）**：用户原始要求是分类图 4:3，但 S5 的 Q5 裁决把卡片主图统一成 1:1（分类卡与产品卡共用 `card()`）⇒ 现行分类卡是 1:1。**L1 终审（2026-10-09）明确：必须作为已知差异记录，未经确认不得把原始 4:3 要求标记为已完成，也不得仅凭其它切片的裁决替用户取消。** 本切片**未动 CSS**；要给分类卡单独 4:3，需另开样式切片（改 `kiln-extra.css` + `css:build` + 重量基线 V6）。已同步登记在 [`docs/待验收与遗留清单.md`](待验收与遗留清单.md)。
 - **「保存即自动重发」未做**：改完分类图仍需手动到「分类翻译」逐语言发布（见上「运营语义」）。
 - **后台列表页没显示分类图**：`views.taxonomy_terms` 未加列（§8.2 规定 `page.tsx` 只在 S1/S7 动），运营要在编辑弹窗里看图。
@@ -806,6 +806,29 @@
 **整改复跑证据**：`pnpm test` **116/114/0/2**（新增 4 条）；`tests/integration.ts` 新增 **+88 / −1**（88 行全是新增断言，既有断言一行未改；唯一的 −1 是末端夹具清理那一行改为独立连接+放宽超时，见下条，语句与断言语义未动）；`pnpm -r typecheck` 6/6；`node infrastructure/scripts/verify.mjs` **exit 0**（打印 `FK taxonomy_terms(featured_media_id) -> media_assets(id) ON DELETE SET NULL` + `PASS category media (6): A23–A28` + 全量回滚/重放）；`.runtime` 三项（27/27、8/8、17/17）逻辑未变故沿用。
 
 **整改中查出的运行环境问题（非代码回归）**：全链路复跑时末端**夹具清理**的 `TRUNCATE ... CASCADE` 报 `57014`。取证结论＝**本机 HDD 的 fsync**，与 030 无关：030 已应用 101.9s / 空库 98.2s / **无 030 对照 156.5s（更慢）**；`wait_event=DataFileImmediateSync`、`pg_blocking_pids` 为空、磁盘队列 16–24。该语句是**夹具卫生而非断言**，改为用独立连接（`statement_timeout=600s`）执行；**生产连接参数（`db.ts` 的 30s）与所有断言语义一字未改**，清理失败仍抛错。取证脚本（`.runtime`，不进 git）：`_tmp-lockwatch.mjs` / `_tmp-truncate-timing.mjs` / `_tmp-truncate-control-no030.mjs`。
+
+---
+
+### 13.9 S8 生产上线记录（2026-10-09 15:45–15:47，**S3 已上生产**）
+
+> 授权：项目所有者当轮明确指令「S8」。L1 终审（§13.8）已放行，四条 S8 前置约束逐条对照执行（第 4 条「生产不删真实媒体测 SET NULL」本轮**未做也不需要做** —— 该行为只在隔离库验证）。
+
+| 步骤 | 命令 / 位置 | 结果（实测） |
+| --- | --- | --- |
+| ① 本机构建 | `pwsh -File _deploy/build-prod.ps1` | **exit 0**（5/5 静态页，路由与既有基线一致）；构建后工作树仍 clean；**未在 prod 上构建**（1.96G 内存约束） |
+| ② 部署 | `pwsh -File _deploy/sync-prod.ps1 -SkipBuild -KeyPath ~/.ssh/id_ed25519` | 打包 **2219 文件 / 21.4 MB**（自检：无 `.env`、无源码 `node_modules`、无 `.next` cache）；prod 侧自动备份 `.next` → **`_backup_20261009_154603`**（并清理最旧的 `_backup_20261002_221559`）；`.env`/`media`/`static-site` 不在包内、自动保留；`pnpm install` 1.5s；修 8 个外部包软链；`/etc/cron.d/suns-backup` 同步；**`up 030_taxonomy_featured_media.sql`**；PM2 `suns-cms`/`suns-worker` online（restart 计数 0）；健康检查**第 1 次通过** |
+| ③ 公网验收（脚本 8 项） | sync-prod 第 5 步 | 6 项当场 200；`/api/v1/health` 与 `https://opctools.cloud/en` 报 `000`（curl 层瞬时）→ **立即各重试 3 次全部 200**（0.18–3.2s），判为重启瞬时预热，与 §13.3/§13.6 记录同类，**非回归** |
+| ④ prod DB 断言 | SSH + `psql -f -`（heredoc，凭据不回显） | `migration_030=1`；`column=uuid nullable=YES`；**`fk=taxonomy_terms(featured_media_id) -> media_assets(id) ON DELETE SET NULL cols=1`**（与 harness 同一查询、精确绑定）；`taxonomy_terms=67`、`published_documents=3053`、`terms_with_image=0`（与部署前逐项相同） |
+| ⑤ 零漂移 | prod | `static-site` 页数 **3053 == published_documents 3053**（本次**未跑全站重建**：S3 未改渲染层与 CSS，产物无需变更） |
+| ⑥ 线上后台可见性（只读） | `.runtime/s3-prod-live-check.mjs`（无头 Chrome CDP；管理员口令由 ssh 取到本机临时文件、用后即删、全程不回显） | **16/16 ✅**：`records` 列元数据 `featured_media_id / uuid / nullable / reference=media_assets / readonly=false`；「高级管理 → 分类」可进入、运营指引在；编辑弹窗字段标签 **「分类主图」** + 图片选择器（**101 个媒体选项**）+「＋ 直接上传新图片」+ 字段提示；9 语言首页全 200；`/en` 恰好 1 个 `<h1>`；**0 未捕获异常**。截图 `.runtime/shots/s3-prod/prod-category-field.png` |
+| ⑦ 分类页无断图 | 线上 `/en/products/beaker-with-handle` | 6 张卡片：**6 有图 / 0 占位 / 0 空 src** ⇒ 判据＝「每张卡要么有 `<img>`、要么 `.card--plot`，且全页无空 src」（初版脚本写成"有卡片就必须出现占位"，属**假红**，已订正） |
+| ⑧ 回滚路径 | — | 产物：`cp -a /www/wwwroot/opctools/_backup_20261009_154603/.next apps/cms/.next` + `pm2 restart`；DB：按 L1 口径**回退代码、保留 nullable 列**（`030` 只加列，旧代码兼容）；真要走 down 必须先备份 `taxonomy_terms`；静态产物本次未动，另有 `/root/suns-backups/static-site_*.tar.gz` |
+
+**遗留（内容侧，需用户操作或授权）**：
+
+1. **分类图端到端还差一步**：生产 `terms_with_image=0`，即**还没有任何分类配过图** ⇒ L1 前置 #3 的后半（"配图后在公网核对图片 URL 与当前语言 ALT"）尚未执行。本轮**不代用户改内容**。操作路径：后台 → 高级管理 → 分类 → 编辑 → **分类主图** → 选图/上传 → 保存 → **到「分类翻译」把该分类的每种语言重新发布一次** → 再点「重新生成已发布页面」（站级刷新），分类卡才会带图。
+2. **分类图 4:3 仍是已知差异**（§13.7、[`docs/待验收与遗留清单.md`](待验收与遗留清单.md) C-8）：现行 1:1，未实现 4:3，需用户确认后再开样式切片。
+3. 本次**未做全站重建**；若之后改了 `packages/ui`/CSS，必须按 §11「整站样式」重跑 `.runtime/rebuild-prod-site.sh`。
 
 ---
 
