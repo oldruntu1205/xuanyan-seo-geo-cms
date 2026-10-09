@@ -43,7 +43,7 @@ async function store(doc:Document,jobId:string){const prior=(await query('SELECT
 // 已发布文档 → 卡片形状（产品区 / 文章区 / 关联产品共用）
 const cardOf=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,title:d.title,description:d.description,media:d.media,applications:d.product?.applications||[]});
 
-/** 自动填充区块的「块类型 → 已发布文档集合」映射（2026-10-09 S2/G1，规范 §7.2）。
+/** 自动填充区块的「块类型 → 已发布文档集合」映射（2026-10-09 S2/G1，规范 §7.2；S4/G5 补 certifications）。
  *
  * 为什么抽成纯函数：这段逻辑原本埋在 refreshSite 的循环里，只有连库跑一次全站刷新才验得到；
  * 抽出来后用夹具就能逐条断言三条分支，回归成本从「起库 + 发布」降到一次 tsx 调用
@@ -51,19 +51,40 @@ const cardOf=(d:Document)=>({id:d.product?.id,sku:d.product?.sku,route:d.route,t
  * 为什么 category_grid 必须在这里填：该块类型早已存在、UI 的 cards() 也已能渲染它，
  * 但发布器从不给它填 items ⇒ 运营在首页/分类页只能手抄分类标题与 URL。分类同样只取
  * 已发布快照（不读草稿、不新增对外 API），未发布的分类不会出现在公开页。
+ * certifications（S4/G5）是唯一「数据源不是 Document 快照」的一类：它取 trade_market_cards
+ * 的证书行（已由 certificateCards() 过滤发布态/有效期/来源完整性），形状直接就是渲染要的形状。
  * 返回 null = 该类型不由发布器接管（手填 items 一律保留，不被覆盖）。 */
-export function autoBlockSource(type:string,products:Document[],content:Document[],categories:Document[]):Document[]|null{
+export function autoBlockSource(type:string,products:Document[],content:Document[],categories:Document[],certificates:Row[]=[]):Document[]|Row[]|null{
  if(type==='product_grid')return products;
  if(type==='category_grid')return categories;
  if(type==='latest_articles')return content;
+ if(type==='certifications')return certificates;
  return null;
 }
 /** 自动填充的 items 计算：排除自身路由（分类页不能把自己列进自己的分类列表）、
- * 默认 6 条（块数据 data.limit 可覆盖）、上限 24（与产品区/文章区原口径一致）。 */
-export function autoBlockItems(type:string,ownRoute:string,products:Document[],content:Document[],categories:Document[],limit?:unknown):Row[]|null{
- const source=autoBlockSource(type,products,content,categories);
+ * 默认 6 条（块数据 data.limit 可覆盖）、上限 24（与产品区/文章区原口径一致）。
+ * 证书行没有 route 字段（它指向的是 source_url），故 certifications 分支不做自身路由排除。 */
+export function autoBlockItems(type:string,ownRoute:string,products:Document[],content:Document[],categories:Document[],limit?:unknown,certificates:Row[]=[]):Row[]|null{
+ const source=autoBlockSource(type,products,content,categories,certificates);
  if(!source)return null;
- return source.filter(x=>x.route!==ownRoute).slice(0,Math.min(24,Number(limit)||6)).map(cardOf);
+ const take=Math.min(24,Number(limit)||6);
+ if(type==='certifications')return (source as Row[]).slice(0,take);
+ return (source as Document[]).filter(x=>x.route!==ownRoute).slice(0,take).map(cardOf);
+}
+
+/** 质量与认证的数据源（S4/G5）：trade_market_cards 里 kind='certificate' 的**已发布、未过期、
+ * 关联页面未变更**的行。判据与 packages/domain 的 publicTradeCards() 逐条对齐
+ * （status='published' / valid_until 未过期 / source_hash 完整性），唯一差别是**不按市场过滤**：
+ * 认证是面向所有访客的通用资质，而市场块才是"按采购目的地定制"。
+ * 为什么不直接调 publicTradeCards()：它要求传入具体市场（country IN ('',$market)），
+ * 而这里要的是"该语言的全部认证"；为什么不改 domain：规范 §8.3 明确 trade-operations.ts 本轮不改。 */
+async function certificateCards(locale:string):Promise<Row[]>{
+ return query(`SELECT m.kind,m.title,m.summary,m.source_url,m.valid_until::text AS valid_until
+  FROM trade_market_cards m JOIN locales l ON l.id=m.locale_id
+  WHERE l.code=$1 AND l.is_enabled AND m.kind='certificate' AND m.status='published'
+    AND (m.valid_until IS NULL OR m.valid_until>=CURRENT_DATE)
+    AND (m.source_hash IS NULL OR EXISTS(SELECT 1 FROM published_documents p WHERE p.route=m.source_url AND md5(p.snapshot::text)=m.source_hash))
+  ORDER BY m.valid_until NULLS LAST,m.created_at DESC LIMIT 24`,[locale]);
 }
 
 /** 首页系统文档的板块序列（2026-10-09 S1）。
@@ -79,9 +100,12 @@ export function autoBlockItems(type:string,ownRoute:string,products:Document[],c
  *   观感差异应以旧/新发布产物对比为证。另：cta 块的 label/url 现在会生效（旧实现被 closeBlock
  *   丢弃），这本身就是一处刻意的行为变化，不应被描述成"等价"。
  *
- * 导出以便离线验证：不连数据库也能用夹具渲染这一段，断言顺序与显示/隐藏行为。 */
-export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],content:Document[],prefix:string){
- const zh=locale==='zh';
+ * 导出以便离线验证：不连数据库也能用夹具渲染这一段，断言顺序与显示/隐藏行为。
+ *
+ * S4/G5：`certificates`（来自 certificateCards() 的证书行）非空时，在「案例」之前插入
+ * `certifications` 块；为空时**不插入**（避免为 0 条证书凭空多出一个空板块，也让生产在
+ * 尚无资质资料时与旧首页结构完全一致）。标题走 9 语言表（S6/G7），不再 `locale==='zh'?中:英`。 */
+export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],content:Document[],prefix:string,certificates:Row[]=[]){
  const copy=homeWords[locale]||homeWords.en;
  const w0=words[locale]||words.en;
  const w=(key:string)=>tradeText(locale,key);
@@ -90,13 +114,14 @@ export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],conte
  if(reach)trust.push({dt:w0[3],dd:String(reach),small:w0[4]});
  return [
   {type:'trust_bar',data:{title:ctx.site.site_name||'',items:trust.slice(0,4)}},
-  {type:'product_grid',data:{title:zh?'为您的应用选择合适产品':'Glassware for your application',items:products.slice(0,6).map(cardOf)}},
+  {type:'product_grid',data:{title:w('homeProducts'),items:products.slice(0,6).map(cardOf)}},
   {type:'company_intro',data:{caps:copy.intro,title:copy.introTitle,text:ctx.site.company_description||ctx.site.footer_description||''}},
   {type:'process_steps',data:{caps:w('process'),title:w('processTitle'),description:copy.collectionText,items:['step1','step2','step3'].map(key=>({title:w(key)}))}},
-  {type:'case_studies',data:{caps:w0[0],title:zh?'应用与案例':'Applications & cases',action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType==='case_study').slice(0,3).map(cardOf)}},
-  {type:'latest_articles',data:{caps:copy.craft,title:zh?'技术与应用知识':'Technical knowledge',description:copy.craftText,action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType!=='case_study'&&x.route!==prefix).slice(0,3).map(cardOf)}},
+  ...(certificates.length?[{type:'certifications',data:{caps:w('certCaps'),title:w('certTitle'),items:certificates.slice(0,6)}}]:[]),
+  {type:'case_studies',data:{caps:w0[0],title:w('homeCases'),action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType==='case_study').slice(0,3).map(cardOf)}},
+  {type:'latest_articles',data:{caps:copy.craft,title:w('homeKnowledge'),description:copy.craftText,action_label:w0[1],action_url:prefix+'/blog',items:content.filter(x=>x.contentType!=='case_study'&&x.route!==prefix).slice(0,3).map(cardOf)}},
   {type:'market_procurement',data:{}},
-  {type:'cta',data:{title:zh?'一起讨论您的需求':'Tell us what you need',label:zh?'联系我们':'Contact our team',url:prefix+'/contact'}},
+  {type:'cta',data:{title:w('homeCtaTitle'),label:w('homeCtaLabel'),url:prefix+'/contact'}},
  ];
 }
 
@@ -118,15 +143,20 @@ async function refreshSite(jobId:string){
  const disabled=await query('SELECT route FROM published_documents WHERE locale_id NOT IN(SELECT id FROM locales WHERE is_enabled)');for(const x of disabled){await removePublished(x.route,jobId);changed.push(x.route);}
  for(const locale of locales){const ctx=await siteContext(locale.id);const released=(await query("SELECT snapshot FROM published_documents WHERE locale_id=$1 AND entity_type<>'system' ORDER BY published_at DESC",[locale.id])).map(r=>r.snapshot as Document);
   const products=released.filter(d=>d.entityType==='product_translations'),content=released.filter(d=>d.entityType==='content_item_translations'&&['article','guide','case_study'].includes(d.contentType||'')),categories=released.filter(d=>d.entityType==='taxonomy_term_translations');const card=cardOf;
+  // S4/G5：本语言的证书行（已发布 / 未过期 / 关联页面未变更），供 certifications 块自动填充与首页板块使用。
+  const certificates=await certificateCards(locale.code);
   for(const doc of released){Object.assign(doc,ctx);if(doc.entityType==='taxonomy_term_translations')doc.related=released.filter(d=>d.termIds?.includes(doc.groupId||'')).map(card);else doc.related=doc.related.filter(r=>released.some(d=>d.route===r.route));doc.alternates=(await query(`SELECT p.route AS path,l.code AS locale,l.hreflang FROM published_documents p JOIN locales l ON l.id=p.locale_id WHERE l.is_enabled AND p.entity_type=$1 AND (p.snapshot->>'groupId')=$2 ORDER BY l.sort_order`,[doc.entityType,(doc as any).groupId??doc.entityId]));if(!doc.alternates.length)doc.alternates=[{path:doc.route,locale:doc.locale,hreflang:locale.hreflang}];
-   for(const b of doc.body){const auto=autoBlockItems(b.type,doc.route,products,content,categories,b.data.limit);if(auto&&(!b.data.items?.length||b.data._autoItems)){b.data.items=auto;b.data._autoItems=true;}}
+   for(const b of doc.body){const auto=autoBlockItems(b.type,doc.route,products,content,categories,b.data.limit,certificates);if(auto&&(!b.data.items?.length||b.data._autoItems)){b.data.items=auto;b.data._autoItems=true;}}
    await store(doc,jobId);changed.push(doc.route);
   }
-  const zh=locale.code==='zh',prefix='/'+locale.code;const auto:Document[]=[];
-  auto.push(systemDocument(locale,ctx,prefix,ctx.site.site_title||ctx.site.site_name,systemHomeBlocks(locale.code,ctx,products,content,prefix)));
-  for(const [name,docs,title] of [['products',products,zh?'产品中心':'Products'],['blog',content.filter(x=>x.route!==prefix),zh?'知识中心':'Knowledge']] as [string,Document[],string][]){const count=Math.max(1,Math.ceil(docs.length/24));for(let page=0;page<count;page++){const route=prefix+'/'+name+(page?'/page/'+(page+1):'');const body:any[]=[{type:'product_grid',data:{title,items:docs.slice(page*24,(page+1)*24).map(card)}}];if(page>0)body.push({type:'cta',data:{title:zh?'上一页':'Previous page',label:'←',url:prefix+'/'+name+(page===1?'':'/page/'+page)}});if(page+1<count)body.push({type:'cta',data:{title:zh?'下一页':'Next page',label:'→',url:prefix+'/'+name+'/page/'+(page+2)}});auto.push(systemDocument(locale,ctx,route,title,body));}}
-  auto.push(systemDocument(locale,ctx,prefix+'/contact',zh?'联系我们':'Contact',[{type:'contact_form',data:{title:zh?'说说您的项目':'Let’s discuss your project'}}]));
-  auto.push(systemDocument(locale,ctx,prefix+'/search',zh?'站内搜索':'Search',[{type:'search',data:{}}]));
+  // S6/G7：系统页（首页 / 产品列表 / 知识列表 / 联系 / 搜索）的标题一律走 9 语言表，
+  // 不再 `locale.code==='zh'?中:英`（原先 de/fr/es/it/pt/ja/ko 的这 5 类页面标题全是英文）。
+  const w=(key:string)=>tradeText(locale.code,key);
+  const prefix='/'+locale.code;const auto:Document[]=[];
+  auto.push(systemDocument(locale,ctx,prefix,ctx.site.site_title||ctx.site.site_name,systemHomeBlocks(locale.code,ctx,products,content,prefix,certificates)));
+  for(const [name,docs,title] of [['products',products,w('productsTitle')],['blog',content.filter(x=>x.route!==prefix),w('knowledgeTitle')]] as [string,Document[],string][]){const count=Math.max(1,Math.ceil(docs.length/24));for(let page=0;page<count;page++){const route=prefix+'/'+name+(page?'/page/'+(page+1):'');const body:any[]=[{type:'product_grid',data:{title,items:docs.slice(page*24,(page+1)*24).map(card)}}];if(page>0)body.push({type:'cta',data:{title:w('prevPage'),label:'←',url:prefix+'/'+name+(page===1?'':'/page/'+page)}});if(page+1<count)body.push({type:'cta',data:{title:w('nextPage'),label:'→',url:prefix+'/'+name+'/page/'+(page+2)}});auto.push(systemDocument(locale,ctx,route,title,body));}}
+  auto.push(systemDocument(locale,ctx,prefix+'/contact',w('contactTitle'),[{type:'contact_form',data:{title:w('contactHeading')}}]));
+  auto.push(systemDocument(locale,ctx,prefix+'/search',w('searchTitle'),[{type:'search',data:{}}]));
   const paths=new Set(released.map(x=>x.route));const wanted=new Set(auto.filter(x=>!paths.has(x.route)).map(x=>x.route));const previous=await query("SELECT route FROM published_documents WHERE locale_id=$1 AND entity_type='system'",[locale.id]);for(const old of previous)if(!wanted.has(old.route)&&!paths.has(old.route)){await removePublished(old.route,jobId);changed.push(old.route);}
   for(const doc of auto){if(doc.route.endsWith('/search'))doc.seo.robots_index=false;if(paths.has(doc.route))continue;const suffix=doc.route.slice(prefix.length);doc.alternates=locales.map(l=>({locale:l.code,hreflang:l.hreflang,path:'/'+l.code+suffix}));await store(doc,jobId);changed.push(doc.route);}
  }

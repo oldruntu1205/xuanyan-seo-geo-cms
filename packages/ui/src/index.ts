@@ -103,11 +103,11 @@ function inquiry(d:Document){
  const field=(text:string,control:string,controlId:string)=>'<div class="field"><label for="'+controlId+'">'+text+'</label>'+control+'</div>';
  return `<form class="form inquiry-form" data-locale="${escape(d.locale)}" ${d.product?'data-product="'+escape(d.product.id)+'" data-product-title="'+escape(d.title)+'" data-product-route="'+escape(d.route)+'"':''}>
  <div class="duo">${field(t(d,6),'<input id="'+id('name')+'" name="name" maxlength="160" autocomplete="name" required>',id('name'))}${field(t(d,7),'<input id="'+id('email')+'" name="email" type="email" maxlength="254" autocomplete="email" required>',id('email'))}</div>
- <div class="duo">${field(t(d,8),'<input id="'+id('company')+'" name="company" maxlength="200" autocomplete="organization">',id('company'))}${field(d.locale==='zh'?'电话':'Phone','<input id="'+id('phone')+'" name="phone" type="tel" maxlength="80" autocomplete="tel">',id('phone'))}</div>
+ <div class="duo">${field(t(d,8),'<input id="'+id('company')+'" name="company" maxlength="200" autocomplete="organization">',id('company'))}${field(w('phone'),'<input id="'+id('phone')+'" name="phone" type="tel" maxlength="80" autocomplete="tel">',id('phone'))}</div>
  <div class="duo">${field(w('country'),'<select id="'+id('country')+'" name="country" autocomplete="country"><option value="">—</option>'+countryOptions(d.locale)+'</select>',id('country'))}${field(w('delivery'),'<input id="'+id('delivery')+'" name="target_delivery_on" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" placeholder="YYYY-MM-DD">',id('delivery'))}</div>
  <div class="duo">${field(w('term'),'<select id="'+id('term')+'" name="preferred_incoterm"><option value="">—</option>'+['EXW','FCA','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP'].map(x=>'<option>'+x+'</option>').join('')+'</select>',id('term'))}${d.product?field(w('quantity'),'<input id="'+id('quantity')+'" name="quantity" type="number" min="0.001" step="any" value="1" required>',id('quantity')):''}</div>
  <div class="field"><label for="${id('notes')}">${w('notes')}</label><textarea id="${id('notes')}" name="specification_notes" maxlength="2000" rows="3"></textarea></div>
- <div class="field"><span class="field-label" id="iq-file-label">${w('attachment')}</span><div class="file-field"><input id="iq-file" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" aria-labelledby="iq-file-label" data-attachment><label class="file-btn" for="iq-file">${escape(d.locale==='zh'?'选择文件':'Choose a file')}</label><span class="file-name" data-empty="${escape(d.locale==='zh'?'未选择任何文件':'No file chosen')}">${escape(d.locale==='zh'?'未选择任何文件':'No file chosen')}</span></div><span class="hint">${escape(d.locale==='zh'?'PDF 或图片，不超过 5 MB。':'PDF or image, up to 5 MB.')}</span></div>
+ <div class="field"><span class="field-label" id="iq-file-label">${w('attachment')}</span><div class="file-field"><input id="iq-file" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" aria-labelledby="iq-file-label" data-attachment><label class="file-btn" for="iq-file">${w('chooseFile')}</label><span class="file-name" data-empty="${w('noFile')}">${w('noFile')}</span></div><span class="hint">${w('fileHint')}</span></div>
  <div class="field"><label for="${id('message')}">${t(d,9)}</label><textarea id="${id('message')}" name="message" minlength="5" maxlength="10000" rows="5" required></textarea></div>
  <label class="check" for="iq-consent"><input id="iq-consent" name="consent" type="checkbox" required> <span>${t(d,11)}</span></label><label class="trap" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
  <div class="form-foot"><button class="btn btn-ember" type="submit">${t(d,10)}</button></div><p class="form-result" role="status" aria-live="polite"></p></form>`;
@@ -224,11 +224,30 @@ function block(b:Block,d:Document):string{const a=b.data||{};const type=b.type;c
  // 设为块类型后即可被排序/隐藏（**显式隐藏不会被补回**）；缺席时由 trade-public.ts 的空集循环安全退出。
  // L1 Q2 裁定：「有轮播 ⇒ 必有市场块」与「市场块可隐藏」冲突，故渲染层不再兜底该块。
  if(type==='market_procurement')return tradePublicSection(d);
- // certifications：质量与认证。**items 目前由运营在后台手填**（复用 .trade-public-grid 的卡片样式）。
- // ⚠️ 尚未实现（L1 终审 P2 指出原注释与实现不符，已订正）：从 trade_market_cards(kind='certificate')
- // 自动取数、适用范围与有效期过滤、以及撤回/过期后清除旧 items —— 属 S4（G5）范围，本切片不交付。
- // 另注：静态产物只在发布/重建时刷新，因此"过期自动消失"不能靠渲染期过滤实现，需 S4 一并设计触发机制。
- if(type==='certifications'){if(!items.length)return '';return section(wrap(secHead({caps:a.caps||d.site.site_name,title:a.title,description:a.description})+'<div class="trade-public-grid">'+items.map((x:Row)=>'<article>'+(x.kind?'<small>'+escape(x.kind)+'</small>':'')+'<h3>'+escape(x.title||'')+'</h3>'+(x.summary?'<p>'+escape(x.summary)+'</p>':'')+(x.valid_until?'<span class="trade-expiry">'+escape(x.valid_until)+'</span>':'')+(x.source_url?'<a href="'+escape(safeURL(x.source_url))+'" rel="noopener noreferrer">'+escape(u(d,'readMore'))+'</a>':'')+'</article>').join('')+'</div>'),{tight:true});}
+ // capability：制造能力（S4/G4）。零 DDL、零新表 —— 一个块承载「图 + 文 + 数据 + 能力清单」，
+ // 版式原语复用既有 image_text（.split）与 statistics（.facts）的结构；kiln 里没有的组件
+ // （.capability / .cap-list）按纪律用附加类写在 kiln-extra，不往 kiln.css 混写。
+ if(type==='capability'){
+  const stats=(Array.isArray(a.stats)?a.stats:[]).filter((x:Row)=>x&&(x.value||x.label)).slice(0,4);
+  const features=items.filter((x:Row)=>x&&(x.title||x.text));
+  const media=image(a);
+  if(!media&&!a.title&&!a.text&&!stats.length&&!features.length)return '';
+  const intro=(media||a.title||a.text)?'<div class="split cap-intro">'+(media?'<div>'+media+'</div>':'')+'<div>'+caps(a.caps)+h2sec(a.title)+lede(a.text||a.description)+(a.url?'<div class="btn-row" style="margin-top:1.6rem">'+btn(a.url,a.label||u(d,'readMore'))+'</div>':'')+'</div></div>':'';
+  const facts=stats.length?'<div class="facts">'+stats.map((x:Row)=>'<div class="fact"><b>'+escape(x.value||'')+'</b><span>'+escape(x.label||'')+'</span></div>').join('')+'</div>':'';
+  const list=features.length?'<ul class="cap-list">'+features.map((x:Row)=>'<li>'+(x.kicker?'<span class="k">'+escape(x.kicker)+'</span>':'')+'<h3>'+escape(x.title||'')+'</h3>'+(x.text||x.description?'<p>'+escape(x.text||x.description)+'</p>':'')+'</li>').join('')+'</ul>':'';
+  return section(wrap(intro+facts+list),{cls:'capability'});
+ }
+ // certifications：质量与认证（S4/G5）。items 由发布器从 trade_market_cards(kind='certificate')
+ // 自动填充（过期 / 已撤回 / 关联页面已变更的卡片**不会**进入 items，见 publisher 的 certificateCards()）。
+ // 这里再做一次**渲染期**过滤：静态产物只在「发布 / 重建」时重写，因此"到期不再展示"的生效时刻
+ // = 下一次站级刷新（后台「全站重建」，或任一次内容发布都会触发）；渲染期过滤保证"重建即消失"。
+ // ⚠️ 仍未做（刻意留到别的切片）：按到期时间自动排一次重建 —— 那需要新增定时机制，不在本切片范围。
+ if(type==='certifications'){
+  const today=new Date().toISOString().slice(0,10);
+  const live=items.filter((x:Row)=>!x.valid_until||String(x.valid_until)>=today);
+  if(!live.length)return '';
+  return section(wrap(secHead({caps:a.caps||tradeText(d.locale,'certCaps'),title:a.title||tradeText(d.locale,'certTitle'),description:a.description})+'<div class="trade-public-grid">'+live.map((x:Row)=>'<article>'+(x.kind?'<small>'+escape(x.kind)+'</small>':'')+'<h3>'+escape(x.title||'')+'</h3>'+(x.summary?'<p>'+escape(x.summary)+'</p>':'')+(x.valid_until?'<span class="trade-expiry">'+escape(tradeText(d.locale,'marketValid'))+' '+escape(x.valid_until)+'</span>':'')+(x.source_url?'<a href="'+escape(safeURL(x.source_url))+'" rel="noopener noreferrer">'+escape(u(d,'readMore'))+'</a>':'')+'</article>').join('')+'</div>'),{tight:true});
+ }
  return section(wrap(heading(a.title)+p(a.text||'')));
 }
 
@@ -253,28 +272,28 @@ export function schemaFor(d:Document){if(d.schema?.schema_json&&Object.keys(d.sc
  ]};}
 // 市场与采购块：DOM 钩子（[data-trade-public]/select/[data-trade-cards]/[role=status]）由 trade-public.ts 的 JS 使用，勿改。
 function tradePublicSection(d:Document){
- const zh=d.locale==='zh';
+ // S6/G7：市场块的文案全部走 9 语言表（原先只有 zh/en 两个变体，其余 7 语言一律回落英文）。
+ const w=(key:string)=>tradeText(d.locale,key);
  // 版面：上半「文案 + 目的地选择」左右分栏，卡片网格在**全宽**另起一行
  // （早前版本把网格放在 .split 的右列，三列卡每张只剩约 200px，是错的）。
- const inner='<div class="split"><div>'+caps('MARKET & PROCUREMENT')+h2sec(zh?'为您的市场，准备就绪。':'Ready for your market.')
+ const inner='<div class="split"><div>'+caps(w('marketCaps'))+h2sec(w('marketTitle'))
   +'<p class="lede" style="margin-top:1.3rem">'+escape(d.site.company_description||'')+'</p></div>'
-  +'<div><div class="field"><label for="trade-market">'+(zh?'选择采购目的地':'Select your market')+'</label><select id="trade-market" aria-label="'+(zh?'采购目的地':'Your market')+'"><option value="">'+(zh?'通用资料':'General information')+'</option>'+countryOptions(d.locale)+'</select></div>'
-  +'<div class="trade-entry"><a class="tlink" href="/api/v1/trade-public/portal-page">'+(zh?'客户与渠道专属入口':'Customer & partner portal')+' ↗</a><a class="tlink" href="/'+escape(d.locale)+'/contact?type=distributor">'+(zh?'申请渠道合作':'Become a partner')+' ↗</a></div></div></div>'
+  +'<div><div class="field"><label for="trade-market">'+escape(w('marketSelect'))+'</label><select id="trade-market" aria-label="'+escape(w('marketSelect'))+'"><option value="">'+escape(w('marketGeneral'))+'</option>'+countryOptions(d.locale)+'</select></div>'
+  +'<div class="trade-entry"><a class="tlink" href="/api/v1/trade-public/portal-page">'+escape(w('marketPortal'))+' ↗</a><a class="tlink" href="/'+escape(d.locale)+'/contact?type=distributor">'+escape(w('marketPartner'))+' ↗</a></div></div></div>'
   +'<div class="trade-public-grid" data-trade-cards style="margin-top:clamp(2rem,4vw,3.2rem)"></div>'
   +'<p role="status" aria-live="polite" style="margin-top:1.2rem"></p>';
  return '<section class="section section--tight trade-section" data-trade-public data-locale="'+escape(d.locale)+'"'
-  +' data-empty="'+escape(zh?'当前市场的资料正在准备中，可联系团队获取。':'Contact our team for information about your market.')+'"'
-  +' data-more="'+escape(zh?'查看来源':'View source')+'" data-valid="'+escape(zh?'有效至':'Valid until')+'"'
-  +' data-error="'+escape(zh?'资料暂时无法加载，请联系团队。':'Information is temporarily unavailable. Please contact our team.')+'">'
+  +' data-empty="'+escape(w('marketEmpty'))+'"'
+  +' data-more="'+escape(w('marketMore'))+'" data-valid="'+escape(w('marketValid'))+'"'
+  +' data-error="'+escape(w('marketError'))+'">'
   +wrap(inner)+'</section>';
 }
 // GEO 知识段：短答 + 事实表 + 来源，用 kiln 的 .pd-spec/.rows 承载（结构与语义都对齐模板内页）。
 function geoSection(d:Document){
  if(!d.geo.short_answer)return '';
- const zh=d.locale==='zh';
  const facts=(d.geo.facts||[]) as Row[];
  const refs=(d.geo.references||[]) as Row[];
- const left='<div>'+caps(d.geo.entity_name||d.title)+h2sec(zh?'核心知识':'Key knowledge')
+ const left='<div>'+caps(d.geo.entity_name||d.title)+h2sec(tradeText(d.locale,'geoKey'))
   +'<p class="lede" style="margin-top:1.2rem">'+escape(d.geo.short_answer)+'</p>'
   +(d.geo.definition?'<p style="margin-top:1rem;color:var(--ink)">'+escape(d.geo.definition)+'</p>':'')
   +(facts.length?'<ul class="pd-spec" style="margin-top:1.8rem">'+facts.map((f:Row)=>'<li><span>'+escape(f.fact_key)+'</span><span>'+escape(f.fact_value)+'</span></li>').join('')+'</ul>':'')
@@ -283,6 +302,8 @@ function geoSection(d:Document){
  return section(wrap('<div class="split">'+left+(right||'<div></div>')+'</div>'),{tight:true});
 }
 export function bodyHTML(d:Document){const home=d.route==='/'+d.locale;const nav=menu(d);const footer=d.menus.filter(m=>m.location==='footer');
+ // S6/G7：统计同意条与页脚「统计偏好」的文案走 9 语言表（原先仅 zh/en，其余 7 语言回落英文）。
+ const w=(key:string)=>tradeText(d.locale,key);
  // 翻页 cta（publisher 用 cta 块生成上一页/下一页）单独收成 .pager，避免渲染成两个大 CTA 区块。
  // L1 终审 P2 整改：两处旁路都在这里 ——
  //   · arrows 必须取自**过滤后**的可见集合，否则隐藏的箭头仍会生成分页链接；
@@ -301,13 +322,13 @@ export function bodyHTML(d:Document){const home=d.route==='/'+d.locale;const nav
  const crumbsTrail:{label:string;href?:string}[]=d.product?[{label:t(d,0),href:'/'+d.locale+'/products'},{label:d.title}]:[];
  const pageTitle=d.title;
  const pager=arrows.length?'<nav class="pager" aria-label="Pagination">'+arrows.map(x=>{const label=String(x.data?.label);const isNext=label==='→';return '<a href="'+escape(safeURL(x.data?.url))+'" rel="'+(isNext?'next':'prev')+'">'+escape(isNext?u(d,'next'):u(d,'previous'))+'</a>';}).join('')+'</nav>':'';
- return `${'<div data-analytics="'+escape(d.site.ga_measurement_id||'')+'" class="analytics-consent" hidden><p>'+(d.locale==='zh'?'允许访问统计并关联询盘来源？':'Allow usage analytics and inquiry source attribution?')+'</p><button type="button" data-analytics-choice="yes">'+(d.locale==='zh'?'允许':'Allow')+'</button><button type="button" data-analytics-choice="no">'+(d.locale==='zh'?'拒绝':'Decline')+'</button></div>'}<a class="skip-link" href="#content">Skip to content</a><header class="nav" id="nav" data-open="false"><div class="wrap nav-in"><a class="brand" href="/${escape(d.locale)}/"><b>${escape(d.site.site_name||'SUNS')}</b><i>${escape(d.site.site_title||'Boro 3.3')}</i></a><nav class="nav-links" aria-label="Primary">${nav.links}</nav><div class="nav-cta"><details class="language"><summary>${escape(d.locale.toUpperCase())}</summary><ul>${d.alternates.map(l=>`<li><a href="${escape(l.path)}" hreflang="${escape(l.hreflang)}">${escape(l.locale.toUpperCase())}</a></li>`).join('')}</ul></details><a class="btn nav-search" href="/${escape(d.locale)}/search"${d.route==='/'+d.locale+'/search'?' aria-current="page"':''} aria-label="${t(d,5)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></a><a class="btn nav-contact" href="/${escape(d.locale)}/contact"${d.route==='/'+d.locale+'/contact'?' aria-current="page"':''}>${t(d,3)}</a><a class="btn btn-ember" href="/${escape(d.locale)}/contact#inquiry" aria-label="${escape(tradeText(d.locale,'basket'))}">${t(d,4)}<span class="rfq-count" data-rfq-count hidden></span></a><button class="nav-burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"><i></i></button></div></div><div class="nav-drawer" id="drawer"><ul>${nav.drawer}</ul></div></header><main id="content" class="${home?'home-page':''}">${home?hero(d):pageHead({crumbs:crumbs(d,crumbsTrail),caps:labelOf({category:d.product?.category_name})||d.site.site_name,title:pageTitle,description:d.description,split:Boolean(d.product)})}
+ return `${'<div data-analytics="'+escape(d.site.ga_measurement_id||'')+'" class="analytics-consent" hidden><p>'+escape(w('analyticsAsk'))+'</p><button type="button" data-analytics-choice="yes">'+escape(w('analyticsAllow'))+'</button><button type="button" data-analytics-choice="no">'+escape(w('analyticsDeny'))+'</button></div>'}<a class="skip-link" href="#content">Skip to content</a><header class="nav" id="nav" data-open="false"><div class="wrap nav-in"><a class="brand" href="/${escape(d.locale)}/"><b>${escape(d.site.site_name||'SUNS')}</b><i>${escape(d.site.site_title||'Boro 3.3')}</i></a><nav class="nav-links" aria-label="Primary">${nav.links}</nav><div class="nav-cta"><details class="language"><summary>${escape(d.locale.toUpperCase())}</summary><ul>${d.alternates.map(l=>`<li><a href="${escape(l.path)}" hreflang="${escape(l.hreflang)}">${escape(l.locale.toUpperCase())}</a></li>`).join('')}</ul></details><a class="btn nav-search" href="/${escape(d.locale)}/search"${d.route==='/'+d.locale+'/search'?' aria-current="page"':''} aria-label="${t(d,5)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg></a><a class="btn nav-contact" href="/${escape(d.locale)}/contact"${d.route==='/'+d.locale+'/contact'?' aria-current="page"':''}>${t(d,3)}</a><a class="btn btn-ember" href="/${escape(d.locale)}/contact#inquiry" aria-label="${escape(tradeText(d.locale,'basket'))}">${t(d,4)}<span class="rfq-count" data-rfq-count hidden></span></a><button class="nav-burger" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"><i></i></button></div></div><div class="nav-drawer" id="drawer"><ul>${nav.drawer}</ul></div></header><main id="content" class="${home?'home-page':''}">${home?hero(d):pageHead({crumbs:crumbs(d,crumbsTrail),caps:labelOf({category:d.product?.category_name})||d.site.site_name,title:pageTitle,description:d.description,split:Boolean(d.product)})}
  ${d.product?productLead(d):''}
  ${home?homepage(d):content.map(b=>block(b,d)).join('')}
  ${pager}
  ${geoSection(d)}
  ${d.faqs.length&&!d.body.some(b=>b.type==='faq')?block({type:'faq',data:{}},d):''}${d.documents.length?block({type:'downloads',data:{}},d):''}${d.related.length?block({type:'product_grid',data:{title:t(d,14),items:d.related}},d):''}${d.product?block({type:'contact_form',data:{title:t(d,4)}},d):''}${hasClosing&&!home?closeBlock(d):''}
- </main><footer><div class="wrap"><div class="foot-in"><div><a class="brand" href="/${escape(d.locale)}/"><b>${escape(d.site.site_name)}</b></a><p class="foot-note">${escape(d.site.footer_description||d.site.company_description||d.heroes[0]?.description||'')}</p></div><div><h4>${t(d,0)}</h4><ul><li><a href="/${escape(d.locale)}/products">${t(d,0)}</a></li><li><a href="/${escape(d.locale)}/blog">${t(d,1)}</a></li></ul></div><div><h4>${t(d,2)}</h4><ul><li><a href="/${escape(d.locale)}/g">${t(d,2)}</a></li><li><a href="/${escape(d.locale)}/contact">${t(d,3)}</a></li></ul></div><div>${footer.length?'<h4>'+escape(t(d,3))+'</h4><ul>'+footer.map(m=>'<li><a href="'+escape(safeURL(m.url))+'">'+escape(m.label)+'</a></li>').join('')+'</ul>':defaultFooterLinks(d)}</div></div><div class="foot-base"><span>${escape(d.site.copyright_text||'© '+new Date().getFullYear()+' '+d.site.site_name)}</span><span>${escape(d.site.company_email||'')}${d.site.company_phone?' · '+escape(d.site.company_phone):''}</span><button class="tlink" type="button" data-trade-privacy>${d.locale==='zh'?'统计偏好':'Analytics preferences'}</button></div></div></footer>
+ </main><footer><div class="wrap"><div class="foot-in"><div><a class="brand" href="/${escape(d.locale)}/"><b>${escape(d.site.site_name)}</b></a><p class="foot-note">${escape(d.site.footer_description||d.site.company_description||d.heroes[0]?.description||'')}</p></div><div><h4>${t(d,0)}</h4><ul><li><a href="/${escape(d.locale)}/products">${t(d,0)}</a></li><li><a href="/${escape(d.locale)}/blog">${t(d,1)}</a></li></ul></div><div><h4>${t(d,2)}</h4><ul><li><a href="/${escape(d.locale)}/g">${t(d,2)}</a></li><li><a href="/${escape(d.locale)}/contact">${t(d,3)}</a></li></ul></div><div>${footer.length?'<h4>'+escape(t(d,3))+'</h4><ul>'+footer.map(m=>'<li><a href="'+escape(safeURL(m.url))+'">'+escape(m.label)+'</a></li>').join('')+'</ul>':defaultFooterLinks(d)}</div></div><div class="foot-base"><span>${escape(d.site.copyright_text||'© '+new Date().getFullYear()+' '+d.site.site_name)}</span><span>${escape(d.site.company_email||'')}${d.site.company_phone?' · '+escape(d.site.company_phone):''}</span><button class="tlink" type="button" data-trade-privacy>${escape(w('analyticsPrefs'))}</button></div></div></footer>
  ${(()=>{/* 产品页上下文：访客点 WhatsApp 时自动带上"他在看哪个产品 + SKU + 页面 URL"，外贸询盘可直接对货。
      用「产品名 + (SKU: x) + URL」而不是加中英文标签，是为了 9 语言通用、无需再翻 9 份文案（产品名本身已是该语言译文）。
      该后缀同时写进 data-wa-suffix，供 site.js 重建链接时补齐（两条路径必须一致，见浏览器端验收）。 */

@@ -995,7 +995,7 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 }
 `;
 
-/* ── kiln-extra.css · 37637 bytes ── CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
+/* ── kiln-extra.css · 39112 bytes ── CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
 export const kilnExtraCSS = `/* CMS components and corporate layout refinements. Built after kiln.css.
    Keep browser hooks and image minmax tracks intact. */
 
@@ -1575,6 +1575,23 @@ footer{background:var(--deep-2);--ash:#fff;--ink:#c6d7e4;--muted:#adc1d1;--hair:
 @media(max-width:880px){.hero-in{grid-template-columns:minmax(0,1fr);padding-block:36px;gap:28px}.hero-copy{padding:0}.hero h1,.hero .slide h2{max-width:24ch}.hero-art{order:0;aspect-ratio:16/9;width:100%;max-width:620px;max-height:none}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:20px}.cred:nth-child(3){border-left:0}.cred:first-child{padding-left:20px}.grid,.home-collection .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-page>.section,.home-page>.home-collection{padding-block:clamp(2.5rem,5vw,3.5rem)}.process-head{grid-template-columns:1fr;gap:16px;padding:24px}.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.step{padding:24px 20px}.pd{gap:28px}#inquiry .split{grid-template-columns:minmax(0,1fr)}.rail-wrap{position:static}.sec-head{flex-wrap:wrap}.trade-section .split{grid-template-columns:1fr;gap:24px}}
 @media(max-width:560px){.nav-in{height:68px;gap:12px}.brand b{font-size:.88rem;max-width:140px}.brand::before{width:4px;height:24px}.nav-cta{gap:7px}.nav-cta>.btn-ember{padding:8px 10px;max-width:126px;line-height:1.25;font-size:.72rem}.language summary{padding:8px;font-size:.72rem}.nav-burger{width:36px;height:38px;flex:none}.hero-in{padding-block:32px;gap:26px}.hero h1,.hero .slide h2{font-size:2.2rem}.hero-art{aspect-ratio:4/3}.hero-caption{font-size:.78rem;padding:9px 12px}.hero-foot{gap:12px}.hero-note{max-width:100%;overflow-wrap:anywhere}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:18px 12px}.cred:first-child{padding-left:12px}.cred dd{font-size:.86rem}.cred dt{font-size:.78rem}.grid,.home-collection .grid{grid-template-columns:minmax(0,1fr);gap:20px}.card-art,.home-product-image{aspect-ratio:1/1}.card-body{min-height:0}.sec-head{display:block}.sec-head>.btn{margin-top:20px}.steps{grid-template-columns:1fr}.step,.step:nth-child(2){border-right:0;border-bottom:1px solid #d8e4ec;display:flex;gap:22px;align-items:center;padding:22px 24px}.step:last-child{border-bottom:0}.step .idx{margin:0;font-size:1.5rem}.step h3{font-size:1rem}.form{padding:20px}.foot-in{grid-template-columns:1fr;gap:28px}.close{padding-block:44px}.post{padding:24px}.btn{padding:.75rem 1.1rem}.service-widget{bottom:12px;right:12px}}
 @media(max-width:380px){.brand b{max-width:80px;font-size:.78rem}.brand{gap:8px}.nav-in{gap:6px}.nav-cta>.btn-ember{max-width:108px;font-size:.78rem}.language summary{padding:7px}.nav-cta{gap:5px}}
+
+/* ── S4/G4 制造能力（capability 块）：统一样式段 ─────────────────────────────────────────
+   kiln 里没有这个组件，按纪律用附加类集中写在这里（不往 kiln.css 混写）。
+   结构复用既有原语：.split（图文）/ .facts（数据统计）/ .cap-list（能力清单，本段新增）。 */
+.capability{background:#fff;border-top:1px solid #e1e9ef;border-bottom:1px solid #e1e9ef}
+.capability .cap-intro{align-items:center;gap:clamp(2rem,5vw,4.5rem)}
+.capability .cap-intro img{width:100%;height:auto;display:block;border-radius:4px}
+.capability .facts{margin-top:clamp(2rem,4vw,3.2rem);border-color:#dce6ed}
+.capability .facts .fact b{color:var(--deep);font-weight:400;letter-spacing:-.03em}
+.capability .facts .fact span{letter-spacing:.08em;color:#526579}
+.cap-list{list-style:none;margin:clamp(2rem,4vw,3.2rem) 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px}
+.cap-list li{background:#F3F7FA;border:1px solid #dce6ed;border-radius:4px;padding:26px 28px}
+.cap-list li .k{display:block;margin-bottom:10px;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ember)}
+.cap-list h3{margin:0;font-size:1.05rem}
+.cap-list p{margin:8px 0 0;font-size:.92rem;line-height:1.6;color:#526579}
+@media(max-width:880px){.capability .cap-intro{grid-template-columns:minmax(0,1fr)}}
+
 `;
 
 export const siteCSS = kilnCSS + kilnExtraCSS;
