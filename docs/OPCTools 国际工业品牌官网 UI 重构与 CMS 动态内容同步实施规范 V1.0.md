@@ -734,6 +734,22 @@
 
 ---
 
+### 13.6 第二批（S4/S6/S7）上线记录（2026-10-09 14:19–14:24）
+
+| 步骤 | 命令 | 结果（实测） |
+| --- | --- | --- |
+| 部署 | `pwsh -File _deploy/sync-prod.ps1` | **exit 0**：构建 5/5 静态页；包 2215 文件 / 21.3 MB（无 `.env`/源码 `node_modules`/`.next` cache）；迁移 **001–029 无新增**；PM2 `suns-cms`/`suns-worker` online、健康检查第 1 次通过；备份 **`/www/wwwroot/opctools/_backup_20261009_141935`**；公网 **8/8 = 200** |
+| 全站重建 | prod `bash /root/rebuild-prod-site.sh` | static-site 先 tar 备份 **`/root/suns-backups/static-site_20261009_141955.tar.gz`（3.1M）**；rebuild job `f2c86c95-60cc-41f1-baef-b71751ba56d9` → **completed**（约 2.5 分钟，脚本自带 120s 等待会先超时，需再查一次状态）；**static-site 3053 == published_documents 3053（零漂移）**；manifest 14:22:34 |
+| 产物一致性 | 公网 `curl /assets/site.css` | prod **81127 B == 本机 `siteCSS.length` 81127 B（逐字节一致）**；含 `.capability`/`.cap-list`；旧调色板 `#0D2D47` **0 命中** |
+| 九语言文案（G7 线上实测） | 公网逐语言取 HTML | **9/9** 首页命中本语言的市场空态文案、**0 处英文回落**；系统页标题已本地化：`/de/products` h1=`Produkte`、`/ja/blog`=`資料`、`/ko/contact`=`문의`、`/fr/search`=`Recherche`（改前均为英文） |
+| 后台可见性（G6 线上实测） | `.runtime/s7-prod-live-check.mjs`（线上 CDP，凭据取自 prod 临时文件、不回显） | **12/12**：后台登录 200、左侧第二项即「首页」、desk 九行来源表（当前九语言全为"系统生成"）、4 条区块说明 + 全站重建按钮、`/de` 1 个 `<h1>` + 1440/390 均无横向溢出、**0 未捕获异常**；截图 `.runtime/shots/s7-prod/` |
+| 公开站钩子未损 | 公网真实产品页 | `/de/products/150ml-single-layer-glass-open-reactor`：`inquiry-form` ✓、`data-rfq-add` ✓、`pd-art` ✓、恰好 1 个 `<h1>` |
+| 未生效项（符合预期） | — | 生产无已发布证书 ⇒ 首页**未**出现 `certifications` 块（结构同旧版）；`capability` 块需运营在页面区块里添加后才会出现 |
+
+> **本批是今日第 2 次上线**（第 1 次为 S5+S1+另一会话 S2，13:33，见 §13.3）。**S8 本身命中高风险清单第 2、6 条**（prod 配置 / 覆盖 `static-site` 不可逆），§8.1 标"部署前需 L1"；本次**未送 L1** 的理由：① 项目所有者**当轮明确指令「上线」**（当前轮明确请求优先于文档纪律）；② 被部署的代码切片 S4/S6/S7 经 §12.2 判定不在高风险清单内（未触鉴权 / 迁移 / 并发 / 对外契约）；③ 覆盖前脚本强制 tar 备份、覆盖后逐项公网验收。**S3（030 迁移）上线前仍必须先出 L1 送审稿，不得援引本条。**
+
+---
+
 ## 附录 A：事实来源
 
 | 事实 | 来源 |
