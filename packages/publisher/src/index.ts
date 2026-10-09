@@ -110,8 +110,6 @@ export function systemHomeBlocks(locale:string,ctx:Row,products:Document[],conte
  const w0=words[locale]||words.en;
  const w=(key:string)=>tradeText(locale,key);
  const trust:{dt:string;dd:string;small?:string}[]=copy.proof.map((label,i)=>({dt:w(['materials','process','markets'][i]||'materials'),dd:label}));
- const reach=ctx.site.company_email||ctx.site.company_phone;
- if(reach)trust.push({dt:w0[3],dd:String(reach),small:w0[4]});
  return [
   {type:'trust_bar',data:{title:ctx.site.site_name||'',items:trust.slice(0,4)}},
   {type:'product_grid',data:{title:w('homeProducts'),items:products.slice(0,6).map(cardOf)}},

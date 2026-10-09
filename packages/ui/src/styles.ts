@@ -995,7 +995,7 @@ footer{border-top:1px solid var(--hair); padding-block:clamp(2.5rem,4.5vw,3.5rem
 }
 `;
 
-/* ── kiln-extra.css · 39112 bytes ── CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
+/* ── kiln-extra.css · 41350 bytes ── CMS 组件与企业官网布局（询盘篮 / 轮播 / 统计同意 / 客服 / 市场块 / 搜索 / 分页） */
 export const kilnExtraCSS = `/* CMS components and corporate layout refinements. Built after kiln.css.
    Keep browser hooks and image minmax tracks intact. */
 
@@ -1453,7 +1453,8 @@ h1,h2,h3,h4{font-weight:600;text-wrap:balance}
 .btn-ember:hover{background:var(--cta-hover);color:#fff;box-shadow:none}
 .tlink{font-size:.82rem;letter-spacing:.025em;text-transform:none;color:var(--ember)}
 .nav{background:#fffffffa;box-shadow:0 2px 14px #0b254508}
-.nav-in{height:80px;gap:24px}
+:root{--nav-h:80px}
+.nav-in{height:var(--nav-h);gap:24px}
 .brand{min-width:0;align-items:center;gap:12px}
 .brand::before{content:'';width:7px;height:30px;background:var(--ember);flex:none}
 .brand b{font-size:1.05rem;line-height:1.3;overflow-wrap:anywhere;max-width:260px;letter-spacing:-.025em}
@@ -1485,6 +1486,30 @@ h1,h2,h3,h4{font-weight:600;text-wrap:balance}
 .hero-note{font-size:.72rem;letter-spacing:.045em;color:#a9c5d8}
 .hero-controls,.hero-controls [data-slide-count]{color:#dcebf5}
 .hero-controls button{color:#fff}
+/* Homepage carousel: edge-to-edge photography beneath the sticky navigation.
+   Keep existing carousel hooks; the information strip remains in normal flow. */
+.home-page>.hero .slide{position:relative;isolation:isolate;min-height:calc(100vh - var(--nav-h) - 1px);min-height:calc(100svh - var(--nav-h) - 1px)}
+.home-page>.hero .hero-in{position:static;display:flex;align-items:center;min-height:inherit;gap:0;padding-block:clamp(72px,10vh,120px) 112px}
+.home-page>.hero .hero-copy{position:relative;z-index:2;width:min(100%,640px);padding:0}
+.home-page>.hero .hero-art{position:absolute;inset:0;z-index:0;width:100%;height:100%;max-width:none;max-height:none;aspect-ratio:auto;margin:0;border:0;border-radius:0;background:var(--deep);pointer-events:none}
+.home-page>.hero .hero-art picture{display:block;width:100%;height:100%}
+.home-page>.hero .hero-art img{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;object-position:center;transform:none}
+.home-page>.hero .hero-art::after{content:'';position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(7,27,51,.82),rgba(7,27,51,.48) 48%,rgba(7,27,51,.12)),linear-gradient(0deg,rgba(7,27,51,.55),transparent 35%)}
+.home-page>.hero .hero-copy .lede{color:#e1edf5}
+.home-page>.hero .hero-caption{inset:auto var(--pad) 80px auto;max-width:38%;padding:0;background:none;color:#dae8f3;text-align:right}
+.home-page>.hero .hero-foot{position:absolute;z-index:3;bottom:0;left:50%;transform:translateX(-50%);min-height:64px;padding-block:16px;border-color:#ffffff30}
+@media(max-width:880px){
+  .home-page>.hero .hero-in{padding-block:64px 112px}
+  .home-page>.hero .hero-art::after{background:linear-gradient(90deg,rgba(7,27,51,.76),rgba(7,27,51,.34)),linear-gradient(0deg,rgba(7,27,51,.5),transparent 45%)}
+  .home-page>.hero .hero-caption{display:none}
+}
+@media(max-width:560px){
+  .home-page>.hero .hero-in{padding-block:48px 112px}
+  .home-page>.hero .hero-copy{width:100%}
+  .home-page>.hero .hero-art::after{background:linear-gradient(0deg,rgba(7,27,51,.82),rgba(7,27,51,.4) 75%,rgba(7,27,51,.28))}
+  .home-page>.creds .creds-in{grid-template-columns:minmax(0,1fr)}
+}
+
 .creds{background:#F3F7FA;border-color:#e1e9ef}
 .creds-in{margin:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .cred{padding:24px 22px}
@@ -1571,9 +1596,9 @@ footer{background:var(--deep-2);--ash:#fff;--ink:#c6d7e4;--muted:#adc1d1;--hair:
 .analytics-consent button{font-size:.78rem;letter-spacing:0;border-radius:3px}
 .analytics-consent button[data-analytics-choice='yes']{background:var(--ember);color:#fff}
 @media(min-width:1121px){.brand{max-width:290px}.nav-links{margin-left:auto}}
-@media(max-width:1120px){.nav-in{height:72px}.hero-in{gap:32px;min-height:410px}.nav-cta .btn{font-size:.76rem}.grid,.home-collection .grid{grid-template-columns:repeat(3,minmax(0,1fr))}.foot-in{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(-n+2){border-bottom:0}.step:nth-child(2){border-right:1px solid #d8e4ec}}
+@media(max-width:1120px){:root{--nav-h:72px}.nav-in{height:var(--nav-h)}.hero-in{gap:32px;min-height:410px}.nav-cta .btn{font-size:.76rem}.grid,.home-collection .grid{grid-template-columns:repeat(3,minmax(0,1fr))}.foot-in{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(-n+2){border-bottom:0}.step:nth-child(2){border-right:1px solid #d8e4ec}}
 @media(max-width:880px){.hero-in{grid-template-columns:minmax(0,1fr);padding-block:36px;gap:28px}.hero-copy{padding:0}.hero h1,.hero .slide h2{max-width:24ch}.hero-art{order:0;aspect-ratio:16/9;width:100%;max-width:620px;max-height:none}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:20px}.cred:nth-child(3){border-left:0}.cred:first-child{padding-left:20px}.grid,.home-collection .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-page>.section,.home-page>.home-collection{padding-block:clamp(2.5rem,5vw,3.5rem)}.process-head{grid-template-columns:1fr;gap:16px;padding:24px}.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.step{padding:24px 20px}.pd{gap:28px}#inquiry .split{grid-template-columns:minmax(0,1fr)}.rail-wrap{position:static}.sec-head{flex-wrap:wrap}.trade-section .split{grid-template-columns:1fr;gap:24px}}
-@media(max-width:560px){.nav-in{height:68px;gap:12px}.brand b{font-size:.88rem;max-width:140px}.brand::before{width:4px;height:24px}.nav-cta{gap:7px}.nav-cta>.btn-ember{padding:8px 10px;max-width:126px;line-height:1.25;font-size:.72rem}.language summary{padding:8px;font-size:.72rem}.nav-burger{width:36px;height:38px;flex:none}.hero-in{padding-block:32px;gap:26px}.hero h1,.hero .slide h2{font-size:2.2rem}.hero-art{aspect-ratio:4/3}.hero-caption{font-size:.78rem;padding:9px 12px}.hero-foot{gap:12px}.hero-note{max-width:100%;overflow-wrap:anywhere}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:18px 12px}.cred:first-child{padding-left:12px}.cred dd{font-size:.86rem}.cred dt{font-size:.78rem}.grid,.home-collection .grid{grid-template-columns:minmax(0,1fr);gap:20px}.card-art,.home-product-image{aspect-ratio:1/1}.card-body{min-height:0}.sec-head{display:block}.sec-head>.btn{margin-top:20px}.steps{grid-template-columns:1fr}.step,.step:nth-child(2){border-right:0;border-bottom:1px solid #d8e4ec;display:flex;gap:22px;align-items:center;padding:22px 24px}.step:last-child{border-bottom:0}.step .idx{margin:0;font-size:1.5rem}.step h3{font-size:1rem}.form{padding:20px}.foot-in{grid-template-columns:1fr;gap:28px}.close{padding-block:44px}.post{padding:24px}.btn{padding:.75rem 1.1rem}.service-widget{bottom:12px;right:12px}}
+@media(max-width:560px){:root{--nav-h:68px}.nav-in{height:var(--nav-h);gap:12px}.brand b{font-size:.88rem;max-width:140px}.brand::before{width:4px;height:24px}.nav-cta{gap:7px}.nav-cta>.btn-ember{padding:8px 10px;max-width:126px;line-height:1.25;font-size:.72rem}.language summary{padding:8px;font-size:.72rem}.nav-burger{width:36px;height:38px;flex:none}.hero-in{padding-block:32px;gap:26px}.hero h1,.hero .slide h2{font-size:2.2rem}.hero-art{aspect-ratio:4/3}.hero-caption{font-size:.78rem;padding:9px 12px}.hero-foot{gap:12px}.hero-note{max-width:100%;overflow-wrap:anywhere}.creds-in{grid-template-columns:repeat(2,minmax(0,1fr))}.cred{padding:18px 12px}.cred:first-child{padding-left:12px}.cred dd{font-size:.86rem}.cred dt{font-size:.78rem}.grid,.home-collection .grid{grid-template-columns:minmax(0,1fr);gap:20px}.card-art,.home-product-image{aspect-ratio:1/1}.card-body{min-height:0}.sec-head{display:block}.sec-head>.btn{margin-top:20px}.steps{grid-template-columns:1fr}.step,.step:nth-child(2){border-right:0;border-bottom:1px solid #d8e4ec;display:flex;gap:22px;align-items:center;padding:22px 24px}.step:last-child{border-bottom:0}.step .idx{margin:0;font-size:1.5rem}.step h3{font-size:1rem}.form{padding:20px}.foot-in{grid-template-columns:1fr;gap:28px}.close{padding-block:44px}.post{padding:24px}.btn{padding:.75rem 1.1rem}.service-widget{bottom:12px;right:12px}}
 @media(max-width:380px){.brand b{max-width:80px;font-size:.78rem}.brand{gap:8px}.nav-in{gap:6px}.nav-cta>.btn-ember{max-width:108px;font-size:.78rem}.language summary{padding:7px}.nav-cta{gap:5px}}
 
 /* ── S4/G4 制造能力（capability 块）：统一样式段 ─────────────────────────────────────────
