@@ -674,13 +674,31 @@
 2. **CDP 直连 `/json/new` 目标会在导航时失效**：`.runtime/industrial-ui/capture.mjs` 报 `-32000 Inspected target navigated or closed`。**处置**：改用**浏览器级 WS + `Target.attachToTarget(flatten:true)` + `sessionId`**，并等 `Page.loadEventFired` 而非定时 sleep —— 新脚本 **`.runtime/s5-probe.mjs`**（支持 `--widths=` 与 `--shot=`）。后续 §9 V7 的宽度矩阵建议直接用这个脚本。
 3. **Chrome CLI 的 `--window-size` 不等于布局视口**：`--screenshot --window-size=390,1100` 会**按更宽的视口排版再裁成 390**，看起来像横向溢出（实测 `scrollWidth === clientWidth`，是假象）。**移动端判定必须用 CDP `Emulation.setDeviceMetricsOverride`**，不能用 CLI 截图。
 4. **本工作区存在并发写入者**（2026-10-09 发现）：`a229bee`（本会话）与 `fa946b6`（本会话）之间出现了第三方提交 `9b33603`（同 git 身份 `suns-dev`，内容是「19 张重建产品图入库生产」的两个 docs 文件）。本次经核对**无文件交集、未互相覆盖**，但纪律必须照此执行：① 提交只用 `git add <显式路径>`，**绝不 `git add -A`**；② 编辑 `docs/*.md` 等共享文档前**先重读**，避免丢对方内容；③ 提交前先看 `git log --oneline -3` 确认父提交是否被移动。另注意对方在做**生产侧内容写入**，本会话做代码侧，两侧不要在同一个 prod 写操作上并发。
+5. **`.runtime/connection.json` 是 URL 形式，用 `password=` 正则脱敏会失效**（2026-10-09 实测，本会话踩到）：串形如 `postgresql://suns:<口令>@127.0.0.1:55432/suns`，按 `(?i)(password=)(...)` 脱敏**不命中**，会把口令原样打印。要给人看该文件时只取 host/port/dbname（`-replace '://[^@]+@','://***@'`），或干脆让脚本自己读（`--local-runtime`）。**别再把整个连接串打印出来。**
+6. **`:55432` 的占用状态会变，别把「端口不通」当成「库坏了」**：上一轮报 `InitializeSessionUserId` 失败（端口上跑的是别的项目 `aijev-pgtest` 的实例）时端口是通的；**2026-10-09 12:55 复核：`:55432` 无任何监听进程**，而本项目的 `.runtime/pg-data` 仍在 ⇒ 要用本地库需自行 `pg_ctl start`（见 §2 命令段）。
 
 ### 13.3 尚未做（按切片顺序）
 
-- **S1 的步骤 1（首页实体化，Q6 = 先 en 试点）**：代码侧已完成，**数据侧未执行**。原因：本机 `:55432` 是别的项目（`aijev-pgtest`）的库，本项目自己的集群未运行；而建 `path=/en` 的内容页是**目标环境的内容写入**，对生产需授权。**在实体页出现之前，首页仍由系统文档驱动，但顺序已由 `systemHomeBlocks()` 决定**，同样受 S1 改动约束。
+- **S1 的步骤 1（首页实体化，Q6 = 先 en 试点）**：代码侧已完成，**数据侧未执行**。原因：本机 `.runtime/pg-data` 本轮**未运行**（2026-10-09 12:55 复核 `:55432` 无监听；上一轮该端口上跑的是别的项目 `aijev-pgtest` 的实例，见 §13.2 坑 6）⇒ 要用本地库需自行起；而建 `path=/en` 的内容页是**目标环境的内容写入**，对生产需授权。**在实体页出现之前，首页仍由系统文档驱动，但顺序已由 `systemHomeBlocks()` 决定**，同样受 S1 改动约束。
 - **L1 终审**：送审稿已产出（`docs/L1送审稿-S1-首页板块数据驱动.md`），**需人工转交**（本机无 `codex` CLI）。待回执后按 §12.2 处理 Q1–Q6。
-- **S2/S3/S4/S6/S7**、**S8（部署，🔴 需授权）**：见 §8.1。
+- **S2 后半（G3 选择器）/S3/S4/S6/S7**、**S8（部署，🔴 需授权）**：见 §8.1；S2 前半（G1）已完成，见 §13.4。
 - **生产可见性**：本地预览已能反映 S1 效果（9 语言首页 8 板块 / 顺序可改 / 可隐藏）；**公开站仍未部署**，需 S8 授权。
+
+### 13.4 S2 前半（G1 分类板块自动填充）已完成（2026-10-09）
+
+| 切片 | 提交 | 内容 | 证据 |
+| --- | --- | --- | --- |
+| **S2/G1** | `281533a` | `packages/publisher/src/index.ts`：自动填充抽出为纯函数 `autoBlockSource()` / `autoBlockItems()`，并把 `category_grid` 接入已发布分类快照 | `.runtime/s2-verify.mjs` **26/26**（exit 0）；`pnpm test` 99/97/0/2 exit 0；`pnpm -r typecheck` 6/6 exit 0；`git diff --stat -- tests/` 空 |
+
+**S2/G1 关键实现决策（供评审）**：
+- **为什么抽纯函数**：自动填充原本埋在 `refreshSite` 的循环里，只有连库跑一次全站刷新才验得到；抽出后夹具即可逐条断言三条分支（与 `systemHomeBlocks` 同一手法），回归成本从「起库 + 发布」降到一次 `tsx` 调用。
+- **口径不变**：`product_grid` / `latest_articles` 的来源、默认 6 条、上限 24、排除自身路由、手填 items 不被覆盖（`_autoItems` 守卫）全部保持原语义，由 `s2-verify` 逐条锁住（含「非法 limit 回落 6」）。
+- **只加不改**：`category_grid` 的块类型与渲染路径（`cards()`）早已存在，本次只补「谁给它填 items」；**未改 `packages/ui`**（§8.2 规定 `index.ts` 只在 S1/S4/S6 动）。
+- **未发布分类不会泄露**：来源是 `released`（`published_documents` 快照），不读草稿 ⇒ 从未发布的分类不出现在公开页（已断言）。
+- **实测发现（记为下一轮 UI 切片候选，本轮不偷偷改）**：`card()` **不渲染 `item.description`**（只有 `posts()` 渲染描述）⇒ 分类描述随快照带出但卡片上看不到。要在卡片显示必须改 `packages/ui/src/index.ts` 的 `card()`，会同时影响产品卡 DOM 契约，超出 S2 范围。
+- **分类主图仍缺**：`taxonomy_terms` 没有图片列（§7.3 / S3 的 `030` 迁移），故分类卡当前一律走 `.card--plot` 占位（已断言「不是断图、无空 `src`」）。
+
+**S2/G3（产品/分类选择器）未做**：仍按 §7.4 的零 DDL 方案（`BlockEditor` 增加选择器，调既有 `records` / `reference-labels`）。**为什么没顺手做**：它是后台 UI 改动，仅 typecheck 通过不算验收，必须起本项目自己的库 + CMS 才能做真实点选验收（本机库当前未运行）；且 `BlockEditor` 目前是纯受控组件（只有 `value/onChange`），加入选择器需要给它注入 locale 上下文，避免「在 zh 页面上选了 en 版本产品、卡链指向英文页」这类跨语言错链 —— 属于要单独设计与验收的一小步。
 
 ---
 
