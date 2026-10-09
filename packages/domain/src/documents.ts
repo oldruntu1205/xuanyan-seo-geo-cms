@@ -25,7 +25,15 @@ export async function sourceDocument(table:string,id:string):Promise<Document>{
  if(geo.id){geo.facts=await query('SELECT * FROM geo_key_facts WHERE geo_profile_id=$1 ORDER BY sort_order',[geo.id]);geo.references=await query('SELECT * FROM geo_references WHERE geo_profile_id=$1 ORDER BY sort_order',[geo.id]);}
  const schema=row.schema_markup_id?(await query('SELECT * FROM schema_markup WHERE id=$1',[row.schema_markup_id]))[0]??{}:{};
  let body=Array.isArray(row.body)?row.body:[];
- if(table==='content_item_translations'){const blocks=await query('SELECT block_type AS type,data FROM content_blocks WHERE content_translation_id=$1 AND is_enabled ORDER BY sort_order,id',[id]);if(blocks.length)body=blocks;}
+ // 2026-10-09 L1 终审 Q4：块表的「所有权」语义 —— 该译文一旦存在块表行，块表就是唯一来源。
+ // 旧写法只查 is_enabled，于是「最后一条启用块被禁用」时查询退化为零行，导致 jsonb 里的旧 body
+ // 复活（同一事实两个 owner）。现在改为取全部行、再在内存里筛启用行：
+ //   · 有行（哪怕全禁用）⇒ 以块表为准；全禁用 ⇒ body 为空，**不回退**到 jsonb；
+ //   · 从未有过块表行 ⇒ 才使用 jsonb body。
+ if(table==='content_item_translations'){
+  const blocks=await query('SELECT block_type,data,is_enabled FROM content_blocks WHERE content_translation_id=$1 ORDER BY sort_order,id',[id]);
+  if(blocks.length)body=blocks.filter((b:Row)=>b.is_enabled).map((b:Row)=>({type:b.block_type,data:b.data}));
+ }
  const result:Document={route:row.path,locale:row.locale,localeId:row.locale_id,entityType:table,entityId:id,groupId:row[t.fk],contentType:row.parent.content_type,title:row[t.title],description:row.excerpt||row.short_description||row.description||'',body,seo,geo,schema,...ctx,faqs:[],media:[],documents:[],related:[],alternates:[],updatedAt:new Date(row.updated_at).toISOString()};
  if(table==='product_translations')result.termIds=(await query('SELECT term_id FROM product_term_links WHERE product_id=$1',[row.product_id])).map(r=>r.term_id);if(table==='content_item_translations')result.termIds=(await query('SELECT term_id FROM content_term_links WHERE content_item_id=$1',[row.content_item_id])).map(r=>r.term_id);
  const alts=await query(`SELECT t.path,l.code AS locale,l.hreflang FROM ${table} t JOIN locales l ON l.id=t.locale_id WHERE t.${t.fk}=$1 AND l.is_enabled AND EXISTS(SELECT 1 FROM published_documents d WHERE d.entity_id=t.id AND d.entity_type=$2)`,[row[t.fk],table]);result.alternates=alts.filter(a=>a.locale!==row.locale).concat([{path:row.path,locale:row.locale,hreflang:row.hreflang}]);

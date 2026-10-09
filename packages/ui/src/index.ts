@@ -174,17 +174,24 @@ const homeWordsFor=(d:Document)=>homeWords[d.locale]||homeWords.en;
 // 2026-10-09 S1：首页从「顺序写死在代码里」改为「按 body 数组顺序渲染」。
 // 为什么必须这样改：旧实现用 d.body.find(type===...) 把产品区/案例/文章捞出来钉死在固定位置，
 // 运营在后台按 ↑/↓ 调顺序对它们完全无效，也无法关掉信任带与采购流程（那两块当时由代码生成）。
-// 三条统一约定：
-//  ① 任何块都可以用 data.hidden=true 隐藏（保留记录，便于随时恢复；不靠"删块"来表达隐藏）；
+// 三条统一约定（2026-10-09 L1 终审整改后）：
+//  ① `data.hidden === true` 表示「显式隐藏」：该块一定不渲染，且**永不被兜底补回**；
+//     缺省（含非布尔值）一律视为 false。它在两条存储路径上的分工是：
+//     块表路径下 `is_enabled` 决定「是否参与装载」，`data.hidden` 决定「装载后是否展示」。
 //  ② product_grid 仍走 homeCollection() 的富卡片版式（应用筛选标签），其余交给 block() 分派；
-//  ③ 首页必须有轮播与市场块 —— .runtime/check-hooks.mjs 的蕴含规则 3 依赖它
-//     （`class="hero" data-carousel` ⇒ 必须同时出现 data-trade-public / data-trade-cards），
-//     所以 body 里没有 market_procurement 块时兜底追加一份；没有任何 cta 块时兜底 closeBlock。
+//  ③ 兜底只针对「未配置」（body 里根本没有该类型），不针对「显式隐藏」：
+//     · 市场块**不再兜底** —— 它由发布器的 systemHomeBlocks() 写入系统首页；实体页没配就是没配。
+//       （L1 Q2 裁定：「有轮播 ⇒ 必有市场块」与「市场块可隐藏」互相冲突，改为
+//        「市场块在场时内部钩子必须完整；不在场时前端脚本安全退出」，由 trade-public.ts 的空集循环保证。）
+//     · cta 仍保留一份**有边界**的兼容兜底：仅当完全没有配置任何 cta 块时，才补默认结尾区块
+//       （旧页面可能从未配过 CTA）；一旦配置了（哪怕被隐藏）就绝不补回。
+const isHidden=(b:Block)=>b?.data?.hidden===true;
 function homepage(d:Document){
- const visible=d.body.filter(b=>!b.data?.hidden);
- const has=(type:string)=>visible.some(b=>b.type===type);
+ const configured=d.body;
+ const visible=configured.filter(b=>!isHidden(b));
  const body=visible.map(b=>b.type==='product_grid'?homeCollection(d,b):block(b,d)).join('');
- return body+(has('market_procurement')?'':tradePublicSection(d))+(has('cta')?'':closeBlock(d));
+ const ctaConfigured=configured.some(b=>b.type==='cta');
+ return body+(ctaConfigured?'':closeBlock(d));
 }
 function closeBlock(d:Document,title?:string,text?:string,label?:string,url?:string,capsText?:string){
  return '<section class="close">'+wrap(caps(capsText||t(d,4))+h2sec(title||t(d,4),'')+lede(text||d.site.footer_description||d.site.company_description||'')+'<div class="close-acts">'+btn(url||('/'+d.locale+'/contact#inquiry'),label||t(d,4),'btn-ember')+btn('/'+d.locale+'/products',t(d,0))+'</div>')+'</section>';}
@@ -216,9 +223,10 @@ function block(b:Block,d:Document):string{const a=b.data||{};const type=b.type;c
  // market_procurement：市场与采购块（DOM 钩子 [data-trade-public]/[data-trade-cards] 由 trade-public.ts 使用，勿改）。
  // 设为块类型后即可被排序/隐藏；homepage() 在没有该块时兜底追加一份，保证钩子契约不破。
  if(type==='market_procurement')return tradePublicSection(d);
- // certifications：质量与认证。数据来自 trade_market_cards(kind='certificate')，由发布器在 refreshSite 时
- // 按 status='published' 且未过期填充 items（不在渲染期查库，避免把 DB 依赖带进 ui 包）。
- // 复用 .trade-public-grid 的卡片样式，保持与市场块一致。
+ // certifications：质量与认证。**items 目前由运营在后台手填**（复用 .trade-public-grid 的卡片样式）。
+ // ⚠️ 尚未实现（L1 终审 P2 指出原注释与实现不符，已订正）：从 trade_market_cards(kind='certificate')
+ // 自动取数、适用范围与有效期过滤、以及撤回/过期后清除旧 items —— 属 S4（G5）范围，本切片不交付。
+ // 另注：静态产物只在发布/重建时刷新，因此"过期自动消失"不能靠渲染期过滤实现，需 S4 一并设计触发机制。
  if(type==='certifications'){if(!items.length)return '';return section(wrap(secHead({caps:a.caps||d.site.site_name,title:a.title,description:a.description})+'<div class="trade-public-grid">'+items.map((x:Row)=>'<article>'+(x.kind?'<small>'+escape(x.kind)+'</small>':'')+'<h3>'+escape(x.title||'')+'</h3>'+(x.summary?'<p>'+escape(x.summary)+'</p>':'')+(x.valid_until?'<span class="trade-expiry">'+escape(x.valid_until)+'</span>':'')+(x.source_url?'<a href="'+escape(safeURL(x.source_url))+'" rel="noopener noreferrer">'+escape(u(d,'readMore'))+'</a>':'')+'</article>').join('')+'</div>'),{tight:true});}
  return section(wrap(heading(a.title)+p(a.text||'')));
 }
@@ -275,9 +283,15 @@ function geoSection(d:Document){
 }
 export function bodyHTML(d:Document){const home=d.route==='/'+d.locale;const nav=menu(d);const footer=d.menus.filter(m=>m.location==='footer');
  // 翻页 cta（publisher 用 cta 块生成上一页/下一页）单独收成 .pager，避免渲染成两个大 CTA 区块。
- const arrows=d.body.filter(b=>b.type==='cta'&&['←','→'].includes(String(b.data?.label||'')));
- const content=(arrows.length?d.body.filter(b=>!arrows.includes(b)):d.body).filter(b=>!b.data?.hidden);
- const hasClosing=d.product||!content.some(b=>b.type==='cta'||b.type==='contact_form');
+ // L1 终审 P2 整改：两处旁路都在这里 ——
+ //   · arrows 必须取自**过滤后**的可见集合，否则隐藏的箭头仍会生成分页链接；
+ //   · hasClosing 必须用**未过滤**的集合判断「是否配置过 cta/contact_form」，
+ //     否则隐藏一个普通 cta 后会补出默认结尾区块（与"显式隐藏不得被补回"冲突）。
+ const configured=d.body;
+ const visible=configured.filter(b=>!isHidden(b));
+ const arrows=visible.filter(b=>b.type==='cta'&&['←','→'].includes(String(b.data?.label||'')));
+ const content=arrows.length?visible.filter(b=>!arrows.includes(b)):visible;
+ const hasClosing=d.product||!configured.some(b=>b.type==='cta'||b.type==='contact_form');
  const crumbsTrail:{label:string;href?:string}[]=d.product?[{label:t(d,0),href:'/'+d.locale+'/products'},{label:d.title}]:[];
  const pageTitle=d.title;
  const pager=arrows.length?'<nav class="pager" aria-label="Pagination">'+arrows.map(x=>{const label=String(x.data?.label);const isNext=label==='→';return '<a href="'+escape(safeURL(x.data?.url))+'" rel="'+(isNext?'next':'prev')+'">'+escape(isNext?u(d,'next'):u(d,'previous'))+'</a>';}).join('')+'</nav>':'';

@@ -75,6 +75,46 @@ try{
   cartonChecks.push('A17 真库往返→解析→计算');
   await cartonClient.query('ROLLBACK');
  }finally{cartonClient.release();}
+ // ── A18–A20 · S1 首页板块：显式隐藏 / 未配置 / 块表所有权（L1 终审回执指定）──────────
+ // 要求：① 排序与隐藏经「保存→重读→发布」保持一致；② 显式隐藏不被兜底补回；
+ // ③ 用真实旧版形状的实体首页走完整发布链路（不得先替换成八块夹具）；
+ // ④ 块表全部禁用后旧 body 不得复活。
+ {
+  const blocksChecks:string[]=[];
+  const legacyBody=[
+   {type:'product_grid',data:{title:'Legacy products',items:[{title:'Cup',route:'/en/products/cup',media:[{url:'/media/cup.png'}]}]}},
+   {type:'latest_articles',data:{title:'Legacy articles',items:[{title:'Old post',route:'/en/blog/old'}],hidden:true}},
+   {type:'cta',data:{title:'Legacy cta',label:'Legacy label',url:'/en/contact'}},
+  ];
+  const homeParent=await save(actor,'content_items',{content_type:'page'});
+  const homeDoc=await save(actor,'content_item_translations',{content_item_id:homeParent.id,locale_id:locale,title:'Legacy home',slug:'home',path:'/en',body:legacyBody});
+
+  // ① 保存 → 重读：顺序与 hidden 必须原样保留
+  const snap=await sourceDocument('content_item_translations',homeDoc.id);
+  assert.deepEqual(snap.body.map((b:any)=>b.type),['product_grid','latest_articles','cta'],'板块顺序必须按 body 数组保留');
+  assert.equal(snap.body[1].data.hidden,true,'显式隐藏标记必须原样保留');
+
+  // ② 走真实发布链路（旧版形状的实体首页，不替换为系统八块夹具）
+  const hjob=await requestPublish(actor,'content_item_translations',homeDoc.id);await processPublishJob({data:{jobId:hjob.id}} as any);
+  const homeHtml=await fs.readFile(path.join(process.env.STATIC_OUTPUT_DIR,'en/index.html'),'utf8');
+  assert.equal((homeHtml.match(/<h1>/g)||[]).length,1,'实体首页仍须恰好 1 个 h1');
+  assert.match(homeHtml,/Legacy label/,'块数据里的自定义 CTA 文案必须生效');
+  assert.ok(!homeHtml.includes('Legacy articles'),'显式隐藏的文章块不得渲染');
+  assert.ok(!/data-trade-public/.test(homeHtml),'未配置市场块时不渲染（且不再兜底补回）');
+  assert.ok(!/class="creds"/.test(homeHtml)&&!/class="process"/.test(homeHtml),'旧版实体首页不得被系统八块序列（信任带/流程）替换');
+  assert.equal((await released('/en'))?.title,'Legacy home','实体首页应接管 /en 路由');
+
+  // ③ 块表所有权：有行 ⇒ 以块表为准；全禁用 ⇒ body 为空，绝不回退到 jsonb
+  await query('INSERT INTO content_blocks(content_translation_id,block_type,sort_order,is_enabled,data) VALUES($1,$2,$3,true,$4::jsonb),($1,$5,$6,true,$7::jsonb)',[homeDoc.id,'rich_text',0,JSON.stringify({title:'From block table'}),'cta',1,JSON.stringify({title:'Block cta'})]);
+  const fromBlocks=await sourceDocument('content_item_translations',homeDoc.id);
+  assert.deepEqual(fromBlocks.body.map((b:any)=>b.type),['rich_text','cta'],'有块表行时必须以块表为准（jsonb body 被忽略）');
+  await query('UPDATE content_blocks SET is_enabled=false WHERE content_translation_id=$1',[homeDoc.id]);
+  const allDisabled=await sourceDocument('content_item_translations',homeDoc.id);
+  assert.equal(allDisabled.body.length,0,'块表全部禁用后 body 必须为空，不得回退到 jsonb 的旧 body（Q4 反复活）');
+  blocksChecks.push('A18 排序/隐藏原样保留','A19 旧版实体首页发布链路','A20 块表全禁用不回退');
+  await remove(actor,'content_item_translations',{id:homeDoc.id});
+  console.log('PASS home blocks ('+blocksChecks.length+'): '+blocksChecks.join('; '));
+ }
  // 夹具自清本身也是不变量
  assert.equal((await query("SELECT count(*)::int AS n FROM products WHERE sku LIKE 'PROBE-CARTON-%'"))[0].n,0,'箱规探针夹具必须自清');
  console.log('PASS carton packing ('+cartonChecks.length+'): '+cartonChecks.join('; '));
