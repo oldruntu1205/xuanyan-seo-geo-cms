@@ -35,7 +35,7 @@ export async function sourceDocument(table:string,id:string):Promise<Document>{
  //    无法判断「从未有过」。因此**删除最后一条块表行**会把来源切回 jsonb body。这是**受控切换**：
  //      ① 写路径有守卫（crud.ts `save()`）：该译文存在块表行时，保存 body 会被拒绝并提示改用
  //         「页面区块」编辑 —— 所以"改 body 悄悄生效"这条隐式路径被堵住，切换只能靠显式删除；
- //      ② tests/integration.ts 的 A20 把这个行为钉住：删除最后一行 ⇒ 回退 body（按契约，不是意外）。
+ //      ② tests/integration.ts 的 A22 把这个行为钉住：删除最后一行 ⇒ 回退 body（按契约，不是意外）。
  if(table==='content_item_translations'){
   const blocks=await query('SELECT block_type,data,is_enabled FROM content_blocks WHERE content_translation_id=$1 ORDER BY sort_order,id',[id]);
   if(blocks.length)body=blocks.filter((b:Row)=>b.is_enabled).map((b:Row)=>({type:b.block_type,data:b.data}));
