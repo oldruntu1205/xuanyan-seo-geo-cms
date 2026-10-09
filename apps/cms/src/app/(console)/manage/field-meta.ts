@@ -105,6 +105,8 @@ export const tableFieldLabels:Record<string,Record<string,string>>={
  hero_slides:{sort_order:'展示顺序'},
  hero_slide_translations:{title:'标题',subtitle:'副标题',description:'说明文字'},
  customer_service_rules:{welcome_text:'欢迎语',working_hours:'工作时间'},
+ // S3/G2：图片列在分类上是「分类主图」，在产品/页面上是「主图」，语义不同，按表覆盖
+ taxonomy_terms:{featured_media_id:'分类主图'},
 };
 
 // 需要给新手解释的字段（列名 → 一句说明）
@@ -165,6 +167,7 @@ export const fieldChoices:Record<string,{value:string;label:string}[]>={
 
 export const tableHints:Record<string,Record<string,string>>={
  hero_slides:{sort_order:'数字越小越靠前，第一张是首屏主图。'},
+ taxonomy_terms:{featured_media_id:'分类卡上的图片。保存后还要到「分类翻译」重新发布该语言的分类，公开站才会显示这张图。'},
 };
 
 export const tableChoices:Record<string,Record<string,{value:string;label:string}[]>>={
@@ -189,6 +192,12 @@ export const resourceGuides:Record<string,{intro:string;steps?:string[];media?:b
   steps:['① 先在「首页轮播」里建好图片','② 每条记录填一种语言的标题与副标题','③ 保存后点「重新生成已发布页面」'],
  },
  media_assets:{intro:'所有图片和文件都在这里。上传后会被轮播、产品、站点 Logo 等引用；引用时也可以直接在这里找。',media:true},
+ // S3/G2：分类主图是本切片新增的字段，运营需要知道「图配在哪、为什么改完前台没变」。
+ taxonomy_terms:{
+  intro:'产品分类（如「玻璃反应釜」）。分类卡的图片、名称与排序在这里维护；名称与描述按语言在「分类翻译」里填。',
+  steps:['① 给分类配图：点「编辑」→「分类主图」选一张图，或直接点「＋ 直接上传新图片」','② 分类名称、网址和描述在「分类翻译」里按语言填写；分类图也建议到「图片与文件」的「图片描述」补各语言的 ALT，否则内容检查会提示缺少图片描述','③ 保存后**必须**到「分类翻译」把该分类的每种语言重新发布一次，公开站才会换图（图片存在分类上，不在译文里；只保存不发布会一直被当成未改动）','④ 分类卡的长相（比例、留白）由全站皮肤决定：只改了样式时，点工具栏「重新生成已发布页面」做全站重建'],
+  media:true,
+ },
  // S7/G6：页面与文章是「首页板块」的编辑入口，这里说清"改哪里、会影响首页哪一块、改完要做什么"。
  content_item_translations:{
   intro:'页面与文章。每条内容的「页面区块」决定公开页上出现哪些板块、按什么顺序：顺序（↑/↓）、显示/隐藏（「隐藏」= 前台不渲染，且不会被默认内容补回）、以及每块的标题与文案都在那里改。',

@@ -19,6 +19,11 @@ const REQUIRED_PAYLOAD_BRIDGE_MIGRATION='025_add_client_role_enum.sql';
 // 「回滚后必须没有」只有在 down 之后由 harness 亲自查一次才算数（SPEC §15 的迁移链路要求）。
 const REQUIRED_INQUIRY_INTENT_MIGRATION='029_add_inquiry_intent_scoring.sql';
 const INQUIRY_INTENT_COLUMNS=['intent_score','intent_level','intent_scored_at','intent_override_level','intent_override_by','intent_override_at'];
+// 030（分类主图）的 harness 侧不变式，与 029 同一手法：正向必须「列存在 + nullable uuid +
+// 外键 → media_assets(id) ON DELETE SET NULL」，全量回滚之后必须「列与约束都不在」。
+// 为什么放在 harness：集成的正向断言只能证明"有"；「回滚后必须没有」只有在 down 之后由 harness
+// 亲自查一次才算数（SPEC §9.4 V12）。
+const REQUIRED_TAXONOMY_MEDIA_MIGRATION='030_taxonomy_featured_media.sql';
 // 已对齐 @payloadcms/drizzle 3.90.2 的真实文案（dist/migrate.js:35 的 message 含
 // "data loss will occur. Would you like to proceed?"，dist/confirm.js 的默认选项是 (y/N)）。
 // 这个守卫不是锦上添花：prompts 的 onCancel 是 process.exit(0)，而我们的 stdio 首项是 'ignore'，
@@ -30,7 +35,21 @@ async function assertMigrationApplied(filename){const x=await openClient();try{c
 async function assertPayloadBootstrap(){const x=await openClient();try{const r=await x.query("SELECT to_regnamespace('payload_internal') IS NOT NULL AS schema_exists,to_regtype('payload_internal.enum_cms_admin_users_role') IS NOT NULL AS role_enum_exists");const s=r.rows[0];if(!s.schema_exists||!s.role_enum_exists)throw Error(`Payload bootstrap incomplete in verification database. payload_internal schema: ${s.schema_exists}, enum_cms_admin_users_role: ${s.role_enum_exists}. auth:migrate must initialize Payload before database migrations run.`);console.log('Payload bootstrap verified.');}finally{await x.end();}}
 async function assertClientRoleEnum(){const x=await openClient();try{const r=await x.query("SELECT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace JOIN pg_enum e ON e.enumtypid=t.oid WHERE n.nspname='payload_internal' AND t.typname='enum_cms_admin_users_role' AND e.enumlabel='client') AS exists");if(!r.rows[0].exists)throw Error('Migration 025 invariant failed: payload_internal.enum_cms_admin_users_role does not contain "client".');console.log('Verified Payload role enum contains client.');}finally{await x.end();}}
 async function assertInquiryIntentColumns(expected){const x=await openClient();try{const r=await x.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='inquiries' AND column_name=ANY($1)",[INQUIRY_INTENT_COLUMNS]);const found=r.rows.map(row=>String(row.column_name));if(expected){if(found.length!==INQUIRY_INTENT_COLUMNS.length)throw Error(`Migration 029 invariant failed: inquiries 上应有 ${INQUIRY_INTENT_COLUMNS.length} 个意向评级列，实测 ${found.length}（${found.join(',')}）。`);console.log('Verified inquiry intent columns present (6).');}else if(found.length!==0)throw Error('Rollback invariant failed: 029 回滚后 inquiries 上仍存在意向评级列 '+found.join(','));}finally{await x.end();}}
-async function migrateBusinessUpAndVerify(){await run(['infrastructure/scripts/migrate.mjs','up']);await assertMigrationApplied(REQUIRED_PAYLOAD_BRIDGE_MIGRATION);await assertClientRoleEnum();await assertMigrationApplied(REQUIRED_INQUIRY_INTENT_MIGRATION);await assertInquiryIntentColumns(true);}
+async function assertTaxonomyFeaturedMedia(expected){const x=await openClient();try{
+ const col=(await x.query("SELECT data_type,is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='taxonomy_terms' AND column_name='featured_media_id'")).rows[0];
+ const fk=(await x.query("SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid=to_regclass('public.taxonomy_terms') AND conname='fk_terms_featured_media'")).rows[0]?.def??null;
+ if(expected){
+  if(!col)throw Error('Migration 030 invariant failed: taxonomy_terms.featured_media_id 不存在。');
+  if(col.data_type!=='uuid'||col.is_nullable!=='YES')throw Error(`Migration 030 invariant failed: featured_media_id 必须是 nullable uuid，实测 ${col.data_type} nullable=${col.is_nullable}。`);
+  if(!fk||!/REFERENCES media_assets\(id\) ON DELETE SET NULL/.test(String(fk)))throw Error('Migration 030 invariant failed: 外键 fk_terms_featured_media 缺失或不是 → media_assets(id) ON DELETE SET NULL，实测：'+fk);
+  console.log('Verified 030: taxonomy_terms.featured_media_id nullable uuid + FK ON DELETE SET NULL.');
+ }else{
+  if(col)throw Error('Rollback invariant failed: 030 回滚后 taxonomy_terms.featured_media_id 仍存在。');
+  if(fk)throw Error('Rollback invariant failed: 030 回滚后约束 fk_terms_featured_media 仍存在。');
+  console.log('Verified 030 rollback: feature media column and FK absent.');
+ }
+}finally{await x.end();}}
+async function migrateBusinessUpAndVerify(){await run(['infrastructure/scripts/migrate.mjs','up']);await assertMigrationApplied(REQUIRED_PAYLOAD_BRIDGE_MIGRATION);await assertClientRoleEnum();await assertMigrationApplied(REQUIRED_INQUIRY_INTENT_MIGRATION);await assertInquiryIntentColumns(true);await assertMigrationApplied(REQUIRED_TAXONOMY_MEDIA_MIGRATION);await assertTaxonomyFeaturedMedia(true);}
 async function runPayloadMigrations(){
  console.log('Bootstrapping Payload schema in isolated database...');
  const env={...process.env,DATABASE_URL:url.href,VERIFY_DATABASE:'1',PAYLOAD_SCHEMA_PUSH:'false',CI:'1'};
@@ -72,8 +91,8 @@ try{
  await run(['--import','tsx','tests/geo-monitoring.integration.ts']);
  await run(['--import','tsx','tests/inquiry-intent.integration.ts']);
  await run(['--import','tsx','tests/integration.ts']);
- await run(['infrastructure/scripts/migrate.mjs','down','000']);await assertInquiryIntentColumns(false);await migrateBusinessUpAndVerify();await migrateBusinessUpAndVerify();
- const record={timestamp:new Date().toISOString(),postgres:version,forward:true,payloadBootstrap:true,migration025:true,clientRoleEnum:true,migration029:true,inquiryIntentColumns:true,inquiryIntentRollback:true,rollback:true,reapply:true,idempotentRunner:true,constraints:true,integration:true};
+ await run(['infrastructure/scripts/migrate.mjs','down','000']);await assertInquiryIntentColumns(false);await assertTaxonomyFeaturedMedia(false);await migrateBusinessUpAndVerify();await migrateBusinessUpAndVerify();
+ const record={timestamp:new Date().toISOString(),postgres:version,forward:true,payloadBootstrap:true,migration025:true,clientRoleEnum:true,migration029:true,inquiryIntentColumns:true,inquiryIntentRollback:true,migration030:true,taxonomyFeaturedMedia:true,taxonomyFeaturedMediaRollback:true,rollback:true,reapply:true,idempotentRunner:true,constraints:true,integration:true};
  // 只在"验证结果"变化时才写这份记录：否则每次跑验证都会仅因 timestamp 不同而弄脏工作树，
  // 让人误以为有未提交改动。timestamp 的语义 = 该结果第一次被记录的时间；结果一致就不动它。
  const recordPath=path.join(root,'docs/database-verification.json');

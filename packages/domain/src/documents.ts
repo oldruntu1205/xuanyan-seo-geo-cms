@@ -52,7 +52,12 @@ export async function sourceDocument(table:string,id:string):Promise<Document>{
  }else if(table==='content_item_translations'){
   result.faqs=await query(`SELECT t.question,t.answer FROM content_faq_links l JOIN faq_items f ON f.id=l.faq_id JOIN faq_item_translations t ON t.faq_id=f.id AND t.locale_id=$2 WHERE l.content_item_id=$1 AND f.status='published' AND f.deleted_at IS NULL ORDER BY l.sort_order`,[row.content_item_id,row.locale_id]);
  }
- if(row.parent.featured_media_id&&!result.media.length){const media=(await query('SELECT * FROM media_assets WHERE id=$1 AND deleted_at IS NULL',[row.parent.featured_media_id]))[0];if(media)result.media.push(media);}
+ // 父表主图（content_items / products 的图库为空时的兜底，以及**分类主图** taxonomy_terms.featured_media_id，
+ // 030 迁移新增）：分类没有图库表，这是分类图进入 snapshot 的唯一路径。
+ // 为什么 LEFT JOIN media_asset_translations：alt 文案不在 media_assets（那里只有文件元数据），
+ // 而在按语言的 media_asset_translations。不 join 的话，运营在「图片描述」里填了 ALT 也不认
+ // —— SEO 诊断（seo-review.ts:39）会永远报「图片缺少当前语言的 ALT 描述」，卡片也只能拿标题当 alt。
+ if(row.parent.featured_media_id&&!result.media.length){const media=(await query('SELECT m.*,t.alt_text FROM media_assets m LEFT JOIN media_asset_translations t ON t.media_id=m.id AND t.locale_id=$2 WHERE m.id=$1 AND m.deleted_at IS NULL',[row.parent.featured_media_id,row.locale_id]))[0];if(media)result.media.push(media);}
  for(const m of result.media){m.url=assetURL(m);m.variants=(await query('SELECT * FROM media_variants WHERE media_id=$1 ORDER BY width',[m.id])).map(v=>({...v,url:assetURL({...m,object_key:v.object_key})}));}
  if(seo.og_image_id){const m=(await query('SELECT * FROM media_assets WHERE id=$1 AND deleted_at IS NULL',[seo.og_image_id]))[0];seo.og_image_url=assetURL(m);}result.documents=result.documents.map(m=>({...m,url:assetURL(m)}));
  if(table==='taxonomy_term_translations')result.related=await query(`SELECT DISTINCT p.route,p.snapshot->>'title' AS title FROM published_documents p WHERE p.locale_id=$1 AND (p.entity_id IN(SELECT t.id FROM product_translations t JOIN product_term_links l ON l.product_id=t.product_id WHERE l.term_id=$2) OR p.entity_id IN(SELECT t.id FROM content_item_translations t JOIN content_term_links l ON l.content_item_id=t.content_item_id WHERE l.term_id=$2))`,[row.locale_id,row.term_id]);

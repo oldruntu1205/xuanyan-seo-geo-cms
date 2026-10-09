@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-02T11:13:03.481Z",
+  "timestamp": "2026-10-09T06:42:21.043Z",
   "postgres": "PostgreSQL 16.14, compiled by Visual C++ build 1944, 64-bit",
   "forward": true,
   "payloadBootstrap": true,
@@ -8,6 +8,9 @@
   "migration029": true,
   "inquiryIntentColumns": true,
   "inquiryIntentRollback": true,
+  "migration030": true,
+  "taxonomyFeaturedMedia": true,
+  "taxonomyFeaturedMediaRollback": true,
   "rollback": true,
   "reapply": true,
   "idempotentRunner": true,
