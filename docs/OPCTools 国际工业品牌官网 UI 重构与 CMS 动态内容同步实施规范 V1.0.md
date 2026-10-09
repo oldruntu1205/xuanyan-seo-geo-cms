@@ -756,15 +756,15 @@
 | --- | --- | --- | --- |
 | **S3（迁移）** | `c7e8bc1` | `database/030_taxonomy_featured_media.sql`：`taxonomy_terms` 加 `featured_media_id uuid` + 外键 `fk_terms_featured_media → media_assets(id) ON DELETE SET NULL`（只加不删、不改 001–029）；回滚脚本 `DROP CONSTRAINT` + `DROP COLUMN` | `verify.mjs` 全链路 **exit 0**（含 030 正向/全量回滚/重放断言）；`.runtime/s3-verify.mjs` **27/27**（14 离线 + 13 临时库）；dev 库 `migrate.mjs status`：030 `false → true` |
 | **S3（装配）** | `c7e8bc1` | `documents.ts`：分类图走既有「父表主图」分支进入 `Document.media[0]`，并 `LEFT JOIN media_asset_translations` 取**当前语言** `alt_text` | `.runtime/s3-docs-check.mjs` **8/8**（真实 dev 库：`media[0].url` 段转义正确、alt 来自翻译表、发布器 `category_grid` 卡片带图，跑完自动还原） |
-| **S3（后台）** | `c7e8bc1` | `field-meta.ts`：`tableFieldLabels.taxonomy_terms.featured_media_id='分类主图'` + 字段提示 + 分类资源页 4 步指引（**零后台代码改动**：字段来自 DB 元数据驱动） | `.runtime/s3-verify-manage-field.mjs` **17/17**（真实 CMS 3001 + CDP 点选：标签/图片选择器 28 选项/直接上传/提示/保存成功/**DB 已写入**/读回一致/清回 NULL/0 异常；截图 `.runtime/shots/s3/category-field-desktop.png`） |
-| **S3（门禁）** | `c7e8bc1` | `verify.mjs` 加 030 harness 不变式（正向 nullable uuid + 外键 `ON DELETE SET NULL`；回滚后列与约束都必须不在），与 029 同一手法 | 同上；另 `pnpm test` **112/110/0/2**、`pnpm -r typecheck` **6/6**、`git diff --stat -- tests/` 空 |
+| **S3（后台）** | `c7e8bc1` | `field-meta.ts`：`tableFieldLabels.taxonomy_terms.featured_media_id='分类主图'` + 字段提示 + 分类资源页 4 步指引（**未新增后台控件或保存逻辑**，仅修改字段元数据与指引：字段由 DB 元数据驱动） | `.runtime/s3-verify-manage-field.mjs` **17/17**（真实 CMS 3001 + CDP 点选：标签/图片选择器 28 选项/直接上传/提示/保存成功/**DB 已写入**/读回一致/清回 NULL/0 异常；截图 `.runtime/shots/s3/category-field-desktop.png`） |
+| **S3（门禁）** | `c7e8bc1` | `verify.mjs` 加 030 harness 不变式（正向 nullable uuid + 外键 `ON DELETE SET NULL`；回滚后列与约束都必须不在），与 029 同一手法 —— **L1 终审后已收紧为精确绑定**（见 §13.8） | 同上；另 `pnpm test` **112/110/0/2**（整改后 **116/114/0/2**）、`pnpm -r typecheck` **6/6**、`git diff --stat -- tests/` 空 |
 
 **本批次关键实现决策（供评审）**：
 
 - **为什么不需要改后台代码**：`records` 的列元数据由 `information_schema` 现取，FK 列自动带 `reference=media_assets`，前端就把该字段渲染成「图片选择器 + 直接上传」。所以本切片只需在 `field-meta.ts` 补标签/提示/指引。
 - **标签为什么用 `tableFieldLabels`**：规范原文写 `fieldLabels.featured_media_id='分类主图'`，但那是**全局**列名表 —— 照字面改会把 `products`/`content_items` 的同名列一起改名成「分类主图」。改用该文件自带的按表覆盖（`tableFieldLabels.taxonomy_terms`），产品页仍是「主图」。
-- **alt 为什么要 join**：`media_assets` 里没有 alt（alt 在按语言的 `media_asset_translations`）。不 join 的话，运营在「图片描述」里填了 ALT 也不认，`seo-review.ts:39` 的「缺少当前语言的 ALT 描述」**永远无法消除**，卡片只能拿标题当 alt。代价：这个 join 在通用「父表主图」分支上，内容页/产品页在「没有图库行」时也会获得该图的 alt（DOM 属性值变化，节点不变）。
-- **030 为什么不补 `ix_fk_*` 索引**：`012` 的注释写「每个外键都建索引」，但 **013–029 都没补**（实测 public 下 230 个外键里 **68 个**没有首列索引，含 029 新增的 `inquiries.intent_override_by`）。本迁移顺此现状；要恢复该不变量应另出「表级索引整理」迁移，而不是混进「加一个图片字段」。
+- **alt 为什么要 join**：`media_assets` 里没有 alt（alt 在按语言的 `media_asset_translations`）。**改动前这条「父表主图」分支**只取媒体行、不装配当前语言的 ALT，于是对分类图这类只走本分支的文档，运营在「图片描述」里填了 ALT 也不会进入 `Document`（**该分支上的 ALT 永远是空的**；本句只限定这条分支，不表示系统其它取图路径也缺 ALT），卡片只能拿标题当 alt。代价：这个 join 在通用「父表主图」分支上，内容页/产品页在「没有图库行」时也会获得该图的 alt（DOM 属性值变化，节点不变）。**L1 终审订正了原措辞**（原写「SEO 诊断会永远报缺少 ALT」，属超出该分支的断言）。
+- **030 为什么不补 `ix_fk_*` 索引**：依据是**当前 `taxonomy_terms` 规模小、暂无相关性能证据**（L1 终审口径），**不以「013–029 也没补」为理由** —— 那只是背景事实（实测 public 下 230 个外键里 68 个没有首列索引），不能当成新增例外的依据。要恢复 `012` 声明的「每个外键都有索引」不变量，应另出「表级索引整理」迁移，而不是混进「加一个图片字段」。**`030` 已应用，其文件与注释一字未改**（改已登记迁移会让 runner 抛 `Applied migration changed` 并中止发布）。
 - **写入路径的运营语义**：分类图存在 `taxonomy_terms`（父表）上，所以**保存后必须到「分类翻译」重新发布该分类的每种语言**，公开站才换图 —— 已写进字段提示与资源指引（这正是本项目「保存成功但前台不变」那一类坑）。
 
 **本批次实测到的四个本机坑（写进规范避免重踩）**：
@@ -777,9 +777,35 @@
 **仍未做（本切片边界）**：
 
 - **生产上线**：`030` 命中高风险清单第 1 条，**上线前必须先出 L1 送审稿** —— 已产出 [`docs/L1送审稿-S3-分类主图迁移.md`](L1送审稿-S3-分类主图迁移.md)（自包含事实 + 7 条待判问题 + 固定回复骨架），**需人工转交 L1**。目前 `030` 只应用在**本机 dev 库**。
-- **分类图 4:3**：用户原始要求是分类图 4:3，但 S5 的 Q5 裁决把卡片主图统一成 1:1（分类卡与产品卡共用 `card()`）⇒ 现行分类卡也是 1:1。本切片**未动 CSS**；要给分类卡单独 4:3 需另开样式切片并重量基线。
+- **分类图 4:3 —— 已知差异 / 未完成（需用户确认，不得记为已完成）**：用户原始要求是分类图 4:3，但 S5 的 Q5 裁决把卡片主图统一成 1:1（分类卡与产品卡共用 `card()`）⇒ 现行分类卡是 1:1。**L1 终审（2026-10-09）明确：必须作为已知差异记录，未经确认不得把原始 4:3 要求标记为已完成，也不得仅凭其它切片的裁决替用户取消。** 本切片**未动 CSS**；要给分类卡单独 4:3，需另开样式切片（改 `kiln-extra.css` + `css:build` + 重量基线 V6）。已同步登记在 [`docs/待验收与遗留清单.md`](待验收与遗留清单.md)。
 - **「保存即自动重发」未做**：改完分类图仍需手动到「分类翻译」逐语言发布（见上「运营语义」）。
 - **后台列表页没显示分类图**：`views.taxonomy_terms` 未加列（§8.2 规定 `page.tsx` 只在 S1/S7 动），运营要在编辑弹窗里看图。
+
+### 13.8 S3 的 L1 终审裁决与整改（2026-10-09）
+
+**裁决：通过**（L1 已只读核对 `c7e8bc1` 相对 `1db9a99` 的六文件差异、迁移事务机制与媒体翻译唯一约束；本轮未复跑测试，采用送审证据；**不含生产部署授权**）。L1 定性：必须补的断言「属于验证补强，交由 L2/L3 落地并取得 Exit 0，**无新失败或契约变化时无需再做一轮完整 L1 送审**」。
+
+| L1 裁决 | 落地 |
+| --- | --- |
+| **Q1** 接受只加列＋外键（依据＝**表规模小、暂无性能证据**，不是「别人也没索引」）；`030` 已应用**不得改写内容或注释** | §13.7 索引理由已按此口径订正；`database/030_*.sql` 一字未改 |
+| **Q2** 接受通用分支 join alt；**需补回归覆盖**（当前语言 ALT / 缺译文仍保留图片 / 软删除不装配 / 产品图库优先） | `tests/integration.ts` **A23–A27** + 新文件 `tests/category-media.test.ts` |
+| **Q3** 回滚形态足够；生产 down 前必须备份核对+列影响+授权，且**优先回退代码、保留 nullable 列** | 写入下方 S8 前置约束；本轮未对任何非临时库执行 down |
+| **Q4/Q5** 命名可接受；标签**按表覆盖正确** | 无改动 |
+| **Q6** 比例另开切片；当前 1:1 **必须作为已知差异记录**，不得标记 4:3 已完成或替用户取消 | §13.7「仍未做」+ `docs/待验收与遗留清单.md` 已登记 |
+| **Q7** 上线清单需补 4 条 | 见下方 S8 前置约束 |
+| **必须补的断言（3 项）** | ① `verify.mjs` 外键断言**收紧**：不再用 `pg_get_constraintdef` 文本正则，改为直读 `pg_constraint` 的 `conrelid / conkey / confrelid / confkey / confdeltype` 与 `array_length(conkey,1)=1`，钉死 `taxonomy_terms(featured_media_id) → media_assets(id) ON DELETE SET NULL`（排掉"约束绑在本表别的列"）<br>② 装配断言入版本控制并接入验证链：`tests/integration.ts` **A23–A28**（含**分类主图经发布快照进入自动分类卡**的端到端）<br>③ 隔离库「删除媒体→分类保留、关联置 NULL」进持久链：即 A26 |
+| **措辞订正（3 处）** | ① 送审稿/§13.7「零后台代码改动」→「**未新增后台控件或保存逻辑**，仅修改字段元数据与指引」<br>② `documents.ts` 的「会永远报缺少 ALT」→ 限定为「**旧父表主图分支**未装配当前语言 ALT」<br>③ 索引理由订正（见 Q1），**不改已应用迁移的文件** |
+
+**S8（生产上线）前置约束（L1 原文，四条）**：
+
+1. 确认生产迁移状态及备份可用，再应用 `030`；应用后核对登记（`schema_migrations`）、nullable uuid、外键及**分类行数**。
+2. 保存主图后，**重新发布该分类需要更新的各语言译文**，再完成站级刷新，使分类卡消费新快照；**仅重建旧快照不会带入新图或新 ALT**。
+3. 公网核对图片 URL、当前语言 ALT、无图占位，以及实际使用该分类图的页面。
+4. **生产不通过删除真实媒体测试 SET NULL**；该行为只在隔离库验证。
+
+**整改复跑证据**：`pnpm test` **116/114/0/2**（新增 4 条）；`tests/integration.ts` 新增 **+88 / −1**（88 行全是新增断言，既有断言一行未改；唯一的 −1 是末端夹具清理那一行改为独立连接+放宽超时，见下条，语句与断言语义未动）；`pnpm -r typecheck` 6/6；`node infrastructure/scripts/verify.mjs` **exit 0**（打印 `FK taxonomy_terms(featured_media_id) -> media_assets(id) ON DELETE SET NULL` + `PASS category media (6): A23–A28` + 全量回滚/重放）；`.runtime` 三项（27/27、8/8、17/17）逻辑未变故沿用。
+
+**整改中查出的运行环境问题（非代码回归）**：全链路复跑时末端**夹具清理**的 `TRUNCATE ... CASCADE` 报 `57014`。取证结论＝**本机 HDD 的 fsync**，与 030 无关：030 已应用 101.9s / 空库 98.2s / **无 030 对照 156.5s（更慢）**；`wait_event=DataFileImmediateSync`、`pg_blocking_pids` 为空、磁盘队列 16–24。该语句是**夹具卫生而非断言**，改为用独立连接（`statement_timeout=600s`）执行；**生产连接参数（`db.ts` 的 30s）与所有断言语义一字未改**，清理失败仍抛错。取证脚本（`.runtime`，不进 git）：`_tmp-lockwatch.mjs` / `_tmp-truncate-timing.mjs` / `_tmp-truncate-control-no030.mjs`。
 
 ---
 
