@@ -2,6 +2,7 @@
   "name": "suns-seo-geo-cms",
   "private": true,
   "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@10.17.1",
   "scripts": {
     "dev": "pnpm --parallel --filter @suns/cms --filter @suns/web --filter @suns/worker dev",
