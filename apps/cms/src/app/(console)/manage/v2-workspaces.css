@@ -5,7 +5,7 @@
 .rfq-admin-detail p,.rfq-admin-detail li{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
 .rfq-admin-detail ul{padding-left:20px}
 .rfq-admin-detail a{color:#185a3e;text-decoration:underline}
-/* 买家意向评级（SPEC: docs/inquiry-intent-scoring-spec.md §15）：机器分/机器等级/人工覆盖/最终等级四值 + 三个动作 */
+/* 买家意向评级（内部 SPEC §15）：机器分/机器等级/人工覆盖/最终等级四值 + 三个动作 */
 .intent-panel{background:#f2f7f4;border:1px solid #cfe2d6;border-radius:8px;padding:16px 18px;margin:16px 0 18px}
 .intent-panel h4{margin:0 0 8px;font-size:14px;color:#255a42}
 .intent-panel strong[data-intent]{color:#1c392e}

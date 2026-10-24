@@ -148,7 +148,7 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 | GET | `v21-crm` | 同步任务、冲突和已关联线索 |
 | POST | `v21-crm-queue`、`v21-crm-retry`、`v21-crm-resolve` | 手动排队、重试失败任务、处理冲突 |
 
-本地 SQL 迁移为 `015_v21_collaboration.sql`，回滚脚本为 `database/rollback/015_v21_collaboration.down.sql`。外部 CRM 请求与响应契约、分页和冲突策略见 [V2.1 本地升级说明](V2.1-LOCAL-UPGRADE.md)。
+本地 SQL 迁移为 `015_v21_collaboration.sql`，回滚脚本为 `database/rollback/015_v21_collaboration.down.sql`。外部 CRM 请求与响应契约、分页和冲突策略见 V2.1 本地升级说明（内部记录，不随公开仓库分发）。
 ## V3.0 客户、营销与经营报表
 
 全部后台接口以 `/api/v1/v2/` 为前缀，使用现有登录会话。CRM 与营销读取沿用 `inquiries` 的读取权限，写入沿用其写入权限；启用营销、登记同意与经营报表仅限管理员。
@@ -170,7 +170,7 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 
 公开退订入口为前台 `GET /unsubscribe?token=...`，确认表单提交到同一路径的 `POST`；签名令牌无须用户登录。营销投递采用 `MARKETING_DELIVERY_URL` 指向的 HTTPS JSON 接口，`Authorization: Bearer <MARKETING_DELIVERY_TOKEN>` 与 `Idempotency-Key` 请求头。JSON 包含 `to`、`subject`、`text`、`unsubscribeUrl`、`headers` 与 `metadata`；服务商须实现幂等并将退订头写入最终邮件。2xx 仅表示接口接收，不等于邮件到达。
 
-数据库迁移为 `019_full_crm.sql`、`020_marketing_automation.sql`、`021_business_intelligence.sql`，对应 rollback 脚本同编号。详细口径见 [V3 本地升级记录](V3-CRM-营销-BI-本地升级记录.md)。
+数据库迁移为 `019_full_crm.sql`、`020_marketing_automation.sql`、`021_business_intelligence.sql`，对应 rollback 脚本同编号。详细口径见内部升级记录（不随公开仓库分发）。
 # V3.1 多产品 RFQ 补充
 
 `POST /api/v1/inquiries` 继续接受原有 JSON；前台新增 `multipart/form-data` 形式：`payload` 为与 JSON 相同的字符串对象，`attachment` 可选且只允许不超过 5 MB 的 PDF/JPEG/PNG/WebP。新增字段 `specification_notes`、`target_delivery_on`（YYYY-MM-DD）与 `preferred_incoterm`；`items` 最多 50 项，服务端只接受已发布、与请求语言一致的产品，并重新读取名称/SKU 作为快照。原有幂等键 `key` 和频率限制保持生效。
@@ -191,4 +191,4 @@ UUID 为示例，需要替换成实际已发布产品。重试同次提交使用
 | service / response | POST | 首响规则、人工首响登记 |
 | funnel | GET | from/to/source/locale/country/product 过滤的询盘群组统计 |
 
-公开接口前缀 `/api/v1/trade-public/`：`GET cards`、`POST visit`、`GET portal-page`。`GET portal` 和 `POST decision` 需要 Bearer 邀请令牌；只访问单个授权询盘。decision 正文为 `{quoteId,decision:"accepted"|"rejected",note}`。只允许客户角色操作最新、有效且已发出的报价。所有响应 no-store。详见 [升级记录](V3.2-V3.4-外贸业务升级.md)。
+公开接口前缀 `/api/v1/trade-public/`：`GET cards`、`POST visit`、`GET portal-page`。`GET portal` 和 `POST decision` 需要 Bearer 邀请令牌；只访问单个授权询盘。decision 正文为 `{quoteId,decision:"accepted"|"rejected",note}`。只允许客户角色操作最新、有效且已发出的报价。所有响应 no-store。详见 升级记录（内部记录，不随公开仓库分发）。

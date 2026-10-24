@@ -9,7 +9,7 @@
  *   有被 `unref()` 的句柄（esbuild 的 service 子进程：esbuild/lib/main.js:2158-2163），
  *   当某个线程只剩"待决 promise + 无人 ref 的句柄"时，Node 会**放弃未完成的加载直接结束**——
  *   非顶层 await 时退出码正是 **0**（顶层 await 则报 unsettled top-level await / exit 13）。
- *   详见 docs/待验收与遗留清单.md 的 E-10 与 .runtime/probe-e10-*.mjs。
+ *   详见 内部台账（不随公开仓库分发） 的 E-10 与 .runtime/probe-e10-*.mjs。
  *
  * 本脚本做的事：
  *   1. 前置检查：schema 已就绪 → 直接返回（幂等，不白跑迁移）；

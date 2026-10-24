@@ -11,7 +11,7 @@ async function run(args){await new Promise((resolve,reject)=>{const p=spawn(proc
 // 不负责创建它。所以临时库必须先用 Payload 官方迁移链 bootstrap，再跑业务迁移。
 // 禁止在本 harness 里手工 CREATE SCHEMA / CREATE TYPE 复制 Payload 结构 —— 那会让 harness
 // 维护第二份 schema 定义（drift），且下一条跨边界迁移会让验证链再次失守。
-// 详见 docs/待验收与遗留清单.md 的 E-1。
+// 详见 内部台账（不随公开仓库分发） 的 E-1。
 // ─────────────────────────────────────────────────────────────────────────────
 const REQUIRED_PAYLOAD_BRIDGE_MIGRATION='025_add_client_role_enum.sql';
 // 029（买家意向评级）的 harness 侧不变式：六列存在/消失 + 迁移登记。

@@ -1,7 +1,7 @@
 # Xuanyan · SUNS SEO/GEO Multilingual CMS — Software License
 ## (Customer Self-Hosting & Customization Edition · v1.0 · 2026-10-24)
 
-> **REFERENCE TRANSLATION ONLY.** The Chinese text in [`LICENSE`](LICENSE) is the authoritative version. If the two differ in meaning, the Chinese text prevails.
+> **REFERENCE TRANSLATION ONLY.** The Chinese text in [`LICENSE.md`](LICENSE.md) is the authoritative version. If the two differ in meaning, the Chinese text prevails.
 
 **【Important — please read】**
 

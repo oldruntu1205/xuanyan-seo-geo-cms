@@ -1,4 +1,4 @@
-// 买家意向评级（规则版）V1 —— SPEC: docs/inquiry-intent-scoring-spec.md（L1 2026-10-02 回签）
+// 买家意向评级（规则版）V1 —— 内部 SPEC（规则版 V1，2026-10-02 回签；不随公开仓库分发）
 //
 // 本文件分三层，边界是**硬约束**（L1 D1–D7）：
 //   ① 纯函数评分核心 scoreInquiryIntent() / buildInquiryIntentSignals()：不读时间、不读环境变量、

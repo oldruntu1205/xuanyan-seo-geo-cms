@@ -12,11 +12,11 @@
 #   现在统一用 LIVE（未删除）+ EXCLUDE（来源非占位）约束「闸门」与「发布集合」，并打印跳过数。
 #
 # 用法（服务器上）：
-#   bash /www/wwwroot/opctools/infrastructure/scripts/publish-translations.sh
+#   bash /var/www/app/infrastructure/scripts/publish-translations.sh
 #   FORCE=1 bash …                       # 跳过闸门强推（慎用）
 #   PLACEHOLDER='自定义正则' bash …        # 覆盖占位文案正则
 set -uo pipefail
-APP=/www/wwwroot/opctools
+APP="${APP:-/var/www/app}"
 API=https://www.opctools.cloud
 PWFILE=/root/opctools-admin-password.txt
 EMAIL=admin@opctools.cloud

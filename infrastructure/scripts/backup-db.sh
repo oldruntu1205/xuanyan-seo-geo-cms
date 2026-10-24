@@ -1,7 +1,7 @@
 #!/bin/bash
 # SUNS 生产库备份（服务器侧，由 /etc/cron.d/suns-backup 每夜调用）
 #
-# 为什么需要它：DEPLOY-PROD.md 第 6 节的最高优先级遗留项就是「生产库无备份任务」。
+# 为什么需要它：本地私有部署记录的最高优先级遗留项就是「生产库无备份任务」。
 # V3.1 起 RFQ 附件以 bytea 存进数据库，故数据库备份是附件唯一的数据保障。
 #
 # 设计要点（都可测）：
@@ -11,7 +11,7 @@
 #   4. 每次同时留一份 .env（600）：恢复时没有它连不上库；不含任何回显。
 set -uo pipefail
 
-APP="${APP:-/www/wwwroot/opctools}"
+APP="${APP:-/var/www/app}"
 ENV_FILE="$APP/.env"
 DEST="${DEST:-/root/suns-backups/db}"
 LOG="${LOG:-/var/log/suns-backup.log}"

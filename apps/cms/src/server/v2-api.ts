@@ -82,7 +82,7 @@ export async function v2Api(request:Request,path:string[],actor:Actor,url:URL,js
   if(method==='GET'){const id=url.searchParams.get('id');return response(await inquiryWorkspace(actor,id?uuid.parse(id):undefined));}
   if(method==='PATCH'){const input=z.object({id:uuid,status:z.enum(['new','processing','qualified','replied','closed','spam']),assignedTo:uuid.nullable().optional(),nextFollowUpAt:z.string().datetime({offset:true}).nullable().optional(),note:z.string().trim().max(4000).optional()}).parse(await json(request));return response(await updateInquiry(actor,input));}
  }
- // 意向评级（SPEC: docs/inquiry-intent-scoring-spec.md §10/§11）。落到本仓库的既有路由约定即：
+ // 意向评级（内部 SPEC §10/§11）。落到本仓库的既有路由约定即：
  //   GET   /api/v1/v2/inquiry-intent?id=…   ←→ SPEC 的“读取机器分/人工覆盖/最终等级”
  //   POST  /api/v1/v2/inquiry-intent        ←→ SPEC 的 POST /admin/inquiries/:id/intent/recompute（V1 唯一触发方式）
  //   PATCH /api/v1/v2/inquiry-intent        ←→ SPEC 的 PATCH /admin/inquiries/:id/intent-override（level 可为 null = 清除）

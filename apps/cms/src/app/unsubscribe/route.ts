@@ -1,9 +1,9 @@
 // 营销退订入口（CMS 侧实现，生产真正生效的就是本文件）。
 //
-// 为什么必须在 CMS 再放一份：生产只跑 suns-cms(3001) + suns-worker，公开页面由 nginx 直出
+// 为什么必须在 CMS 再放一份：生产只跑后台管理与发布 Worker 两个进程，公开页面由 nginx 直出
 // static-site，apps/web 不参与生产部署（见 _deploy/ecosystem.config.cjs、_deploy/pack-prod.py）。
 // 若只在 apps/web 提供该路由，营销邮件正文的退订链接与 List-Unsubscribe 头在生产都会 404。
-// nginx 需把 /unsubscribe 反代到 CMS（_deploy/nginx/opctools.cloud.conf 的 location 正则已含 unsubscribe）。
+// nginx 需把 /unsubscribe 反代到 CMS（生产 nginx vhost（不随公开仓库分发） 的 location 正则已含 unsubscribe）。
 //
 // 与 apps/web/src/app/unsubscribe/route.ts 行为保持一致（同一 domain 函数、同一 token 校验）。
 import {publicMarketingUnsubscribe} from '@suns/domain';
